@@ -10,7 +10,7 @@ class User(Base):
 
     user_id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(String(64), unique=True, nullable=False)
-    username = Column(String(32), nullable=False)
+    username = Column(String(32), unique=True, nullable=False)
     balance = Column(Numeric(10, 2), default=0.00)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
