@@ -14,6 +14,7 @@ class User(Base):
     balance = Column(Numeric(10, 2), default=0.00)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    password_hash = Column(Text, nullable=False)
 
     # relationships to other tables, contstraints
     reminders = relationship("Reminder", cascade="all, delete-orphan", back_populates="user")
