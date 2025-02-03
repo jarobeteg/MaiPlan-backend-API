@@ -30,7 +30,7 @@ async def login(user: UserAuth, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     token_data = {"sub": existing_user.user_id}
-    access_token = create_access_token(data=token_data, expires_delta=timedelta(days=30))
+    access_token = create_access_token(data=token_data)
 
     return {"access_token": access_token, "token_type": "bearer"}
 
