@@ -1,0 +1,10 @@
+from passlib.context import CryptContext
+
+# deprecated auto means that if brcypt gets a new update then passlib will rehash old passwords
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+def verify_password(plain_password, hashed_password) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)

@@ -3,7 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from schemas import UserAuth, UserResponse, Token
 from crud import get_user, create_user
-from routers.auth_utils import create_access_token, verify_password, hash_password, get_current_user
+from auth_utils import create_access_token, get_current_user
+from password_utils import hash_password, verify_password
 from datetime import timedelta
 
 router = APIRouter()

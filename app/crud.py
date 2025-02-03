@@ -2,7 +2,7 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import User
 from schemas import UserAuth
-from routers.auth_utils import hash_password
+from password_utils import hash_password
 
 async def get_user_by_id(db: AsyncSession, user_id: int):
     result = await db.execute(select(User).where(User.user_id == user_id))
