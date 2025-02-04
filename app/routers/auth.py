@@ -15,8 +15,6 @@ async def register(user: UserAuth, db: AsyncSession = Depends(get_db)):
 
     if existing_user:
         raise HTTPException(status_code=401, detail="User already exists")
-    
-    user.password = hash_password(user.password)
 
     new_user = await create_user(db, user)
     
