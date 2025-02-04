@@ -20,6 +20,9 @@ def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.now() + timedelta(days=ACCESS_TOKEN_EXPIRY)
     to_encode.update({"exp": expire})
+    
+    if 'sub' in to_encode:
+        to_encode['sub'] = str(to_encode['sub'])
 
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -28,12 +31,12 @@ async def get_current_user(token: str = Security(oauth2_scheme), db: AsyncSessio
 
     try: 
         payload = jwt.decode(token, SECRET_KEY, algorithms=ALGORITHM)
-        user_id: int = payload.get("sub")
+        user_id: str = payload.get("sub")
 
         if user_id is None:
             raise credential_exception
 
-        user = await get_user_by_id(db, user_id)
+        user = await get_user_by_id(db, int(user_id))
 
         if user is None:
             raise credential_exception
