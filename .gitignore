@@ -1,2 +1,3 @@
 __pycache__
 .env
+/app/run_server.sh
