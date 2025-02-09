@@ -38,7 +38,7 @@ async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
     if not existing_email and not password_match:
         raise HTTPException(
                 status_code=401,
-                detail={"code": 1, "message":, "Invalid credentials!"}
+                detail={"code": 1, "message": "Invalid credentials!"}
                 )
 
     if not existing_email:
