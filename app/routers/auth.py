@@ -32,10 +32,26 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
-    existing_user = await get_user_by_email(db, user.email)
+    existing_email = await get_user_by_email(db, user.email)
+    password_match = verify_password(user.password, existing_email.password_hash)
 
-    if not existing_user or not verify_password(user.password, existing_user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not existing_email and not password_match:
+        raise HTTPException(
+                status_code=401,
+                detail={"code": 1, "message":, "Invalid credentials!"}
+                )
+
+    if not existing_email:
+        raise HTTPException(
+                status_code=401,
+                detail={"code": 2, "message": "Email is not yet registered!"}
+                )
+
+    if not password_match:
+        raise HTTPException(
+                status_code=401,
+                detail={"code": 3, "message": "Incorrect password!"}
+                )
     
     token_data = {"sub": existing_user.user_id}
     access_token = create_access_token(data=token_data)
