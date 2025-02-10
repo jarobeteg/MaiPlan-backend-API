@@ -109,7 +109,7 @@ async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
                 detail={"code": 5, "message": "Incorrect password!"}
                 )
     
-    token_data = {"sub": existing_user.user_id}
+    token_data = {"sub": existing_email.user_id}
     access_token = create_access_token(data=token_data)
 
     return {"access_token": access_token, "token_type": "bearer"}
