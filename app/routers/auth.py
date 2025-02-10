@@ -4,7 +4,7 @@ from database import get_db
 from schemas import UserRegister, UserLogin, UserResponse, Token
 from crud import get_user_by_email, get_user_by_username, create_user
 from auth_utils import create_access_token, get_current_user
-from password_utils import hash_password, verify_password
+from password_utils import hash_password, verify_password, is_valid_password, do_passwords_match
 from datetime import timedelta
 import re
 
@@ -14,19 +14,62 @@ EMAIL_REGEX = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"
 
 @router.post("/register", response_model=UserResponse)
 async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
-    taken_email = await get_user_by_email(db, user.email)
-    taken_username = await get_user_by_username(db, user.username)
+    if not user.email.strip():
+        raise HTTPException(
+                status_code=400,
+                detail={"code": 1, "message": "Email field cannot be empty!"}
+                )
 
+    if not re.match(EMAIL_REGEX, user.email.strip()):
+        raise HTTPException(
+                status_code=400,
+                detail={"code": 2, "message": "Invalid email format!"}
+                )
+
+    taken_email = await get_user_by_email(db, user.email.strip())
+    
     if taken_email:
         raise HTTPException(
-                status_code=400, 
-                detail={"code": 1, "message": "Email is already taken!"}
+                status_code=400,
+                detail={"code": 3, "message": "Email is already taken!"}
                 )
+
+    if not user.username.strip():
+        raise HTTPException(
+                status_code=400,
+                detail={"code": 4, "message": "Username field cannot be empty!"}
+                )
+
+    taken_username = await get_user_by_username(db, user.username.strip())
 
     if taken_username:
         raise HTTPException(
-                status_code=400, 
-                detail={"code": 2, "message": "Username is already taken!"}
+                status_code=400,
+                detail={"code": 5, "message": "Username is already taken!"}
+                )
+
+    if not user.password.strip():
+        raise HTTPException(
+                status_code=400,
+                detail={"code": 6, "message": "Password field cannot be empty!"}
+                )
+
+    if not is_valid_password(user.password.strip()):
+        raise HTTPException(
+                status_code=400,
+                detail={"code": 7, "message": "Password is not strong enough!"}
+                )
+
+    if not user.password_again.strip():
+        raise HTTPException(
+                status_code=400,
+                detail={"code": 8, "message": "Password again field cannot be empty!"}
+                )
+
+    if not do_passwords_match(user.password.strip(), user.password_again.strip()):
+        raise HTTPException(
+                status_code=400,
+                detail={"code": 9, "message": "Passwords do not match!"}
                 )
 
     new_user = await create_user(db, user)
@@ -41,7 +84,7 @@ async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
                 detail={"code": 1, "message": "Email field cannot be empty!"}
                 )
 
-    if not re.match(EMAIL_REGEX, user.email):
+    if not re.match(EMAIL_REGEX, user.email.strip()):
         raise HTTPException(
                 status_code=400,
                 detail={"code": 2, "message": "Invalid email format!"}
