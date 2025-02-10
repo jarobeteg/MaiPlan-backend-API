@@ -1,8 +1,6 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from database import engine, get_db
+from fastapi import FastAPI
+from database import engine
 from routers import auth
 
 @asynccontextmanager
@@ -15,11 +13,3 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
-
-@app.get("/test-db")
-async def test_db_connection(db: AsyncSession = Depends(get_db)):
-    try:
-        result = await db.execute(select(1))
-        return {"status": "success", "message": "Connected to the database", "data": result.scalar()}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}

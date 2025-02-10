@@ -6,8 +6,11 @@ from crud import get_user_by_email, get_user_by_username, create_user
 from auth_utils import create_access_token, get_current_user
 from password_utils import hash_password, verify_password
 from datetime import timedelta
+import re
 
 router = APIRouter()
+
+EMAIL_REGEX = r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)"
 
 @router.post("/register", response_model=UserResponse)
 async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
@@ -32,18 +35,35 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
-    existing_email = await get_user_by_email(db, user.email)
+    if not user.email.strip():
+        raise HTTPException(
+                status_code=400,
+                detail={"code": 1, "message": "Email field cannot be empty!"}
+                )
 
+    if not re.match(EMAIL_REGEX, user.email):
+        raise HTTPException(
+                status_code=400,
+                detail={"code": 2, "message": "Invalid email format!"}
+                )
+
+    if not user.password.strip():
+        raise HTTPException(
+                status_code=400,
+                detail={"code": 3, "message": "Password field cannot be empty!"}
+                )
+
+    existing_email = await get_user_by_email(db, user.email.strip())
     if not existing_email:
         raise HTTPException(
                 status_code=401,
-                detail={"code": 1, "message": "Email is not yet registered!"}
+                detail={"code": 4, "message": "Email is not yet registered!"}
                 )
 
-    if not verify_password(user.password, existing_email.password_hash):
+    if not verify_password(user.password.strip(), existing_email.password_hash):
         raise HTTPException(
                 status_code=401,
-                detail={"code": 2, "message": "Incorrect password!"}
+                detail={"code": 5, "message": "Incorrect password!"}
                 )
     
     token_data = {"sub": existing_user.user_id}
