@@ -4,6 +4,11 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class UserResetPassword(BaseModel):
+    email: str
+    password: str
+    password_again: str
+
 class UserRegister(BaseModel):
     email: str
     username: str
