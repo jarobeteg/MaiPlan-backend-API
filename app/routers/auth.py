@@ -4,8 +4,7 @@ from database import get_db
 from schemas import UserRegister, UserLogin, UserResponse, UserResetPassword, Token
 from crud import get_user_by_email, get_user_by_username, create_user, reset_user_password
 from auth_utils import create_access_token, get_current_user
-from password_utils import hash_password, verify_password, is_valid_password, do_passwords_match
-from datetime import timedelta
+from password_utils import verify_password, is_valid_password, do_passwords_match
 import re
 
 router = APIRouter()
