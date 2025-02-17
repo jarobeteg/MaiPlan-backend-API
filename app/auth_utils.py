@@ -1,8 +1,9 @@
 import os
-from datetime import datetime, timedelta
-from jose import JWTError, jwt
+from datetime import datetime, timedelta, timezone
+from jose import jwt
+from jwt import ExpiredSignatureError, InvalidTokenError
 from fastapi import HTTPException, Depends, Security
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from crud import get_user_by_id
@@ -12,13 +13,14 @@ load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRY = 30 # days
+ACCESS_TOKEN_EXPIRY = 1 # days
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+security = HTTPBearer()
 
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.now() + timedelta(days=ACCESS_TOKEN_EXPIRY)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRY)
     to_encode.update({"exp": expire})
     
     if 'sub' in to_encode:
@@ -27,7 +29,7 @@ def create_access_token(data: dict):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 async def get_current_user(token: str = Security(oauth2_scheme), db: AsyncSession = Depends(get_db)):
-    credential_exception = HTTPException(status_code=401, detail="Could not validate credentials")
+    credential_exception = HTTPException(status_code=401, detail={"code": 1, "message": "Could not validate credentials"})
 
     try: 
         payload = jwt.decode(token, SECRET_KEY, algorithms=ALGORITHM)
@@ -43,5 +45,7 @@ async def get_current_user(token: str = Security(oauth2_scheme), db: AsyncSessio
         
         return user
     
-    except JWTError:
-        raise credential_exception
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail={"code": 2, "message": "Token has expired"})
+    except InvalidTokenError:
+        raise HTTPException(status_code=401, detail={"code": 3, "message": "Invalid token"})
