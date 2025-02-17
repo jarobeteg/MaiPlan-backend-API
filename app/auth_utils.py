@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from jose import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
 from fastapi import HTTPException, Depends, Security
-from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from crud import get_user_by_id
@@ -13,14 +13,13 @@ load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRY = 1 # days
+ACCESS_TOKEN_EXPIRY = 7 # days
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-security = HTTPBearer()
 
 def create_access_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRY)
+    expire = datetime.now(timezone.utc) + timedelta(days=ACCESS_TOKEN_EXPIRY)
     to_encode.update({"exp": expire})
     
     if 'sub' in to_encode:
