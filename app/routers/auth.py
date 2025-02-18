@@ -87,6 +87,9 @@ async def reset_password(user: UserResetPassword, db: AsyncSession = Depends(get
 
     return Token(access_token=get_access_token(existing_user.user_id), token_type="bearer")
 
+@router.post("/token-refresh", response_model=Token)
+async def token_refresh(current_user: UserResponse = Depends(get_current_user)):
+    return Token(access_token=get_access_token(current_user.user_id), token_type="bearer")
 
 # an example of a protected route by jwt
 @router.get("/me", response_model=UserResponse)
