@@ -23,7 +23,7 @@ class User(Base):
     health_reminders = relationship("HealthReminder", cascade="all, delete-orphan", back_populates="user")
     finances = relationship("Finance", cascade="all, delete-orphan", back_populates="user")
     categories = relationship("Category", cascade="all, delete-orphan", back_populates="user")
-    activities = relationship("Activity",  cascade="all, delete-orphan", back_populates="user")
+    events = relationship("Event",  cascade="all, delete-orphan", back_populates="user")
 
 class Reminder(Base):
     __tablename__ = "reminder"
@@ -43,7 +43,7 @@ class Reminder(Base):
 
     user = relationship("User", back_populates="reminders")
     finance = relationship("Finance", back_populates="reminder")
-    activity = relationship("Activity", back_populates="reminder")
+    event = relationship("Event", back_populates="reminder")
     note = relationship("Note", back_populates="reminder")
 
 class Note(Base):
@@ -159,32 +159,32 @@ class Category(Base):
 
     user = relationship("User", back_populates="categories")
     note = relationship("Note", back_populates="category")
-    activity = relationship("Activity", back_populates="category")
+    event = relationship("Event", back_populates="category")
     finance = relationship("Finance", back_populates="category")
 
-class Activity(Base):
-    __tablename__ = "activity"
+class Event(Base):
+    __tablename__ = "event"
 
-    activity_id = Column(Integer, primary_key=True, autoincrement=True)
+    event_id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False)
     category_id = Column(Integer, ForeignKey("category.category_id", ondelete="SET NULL"))
     reminder_id = Column(Integer, ForeignKey("reminder.reminder_id", ondelete="SET NULL"))
     title = Column(String(255), nullable=False)
     description = Column(Text)
     date = Column(DateTime, nullable=False)
-    start_time = Column(DateTime, nullable=False)
-    end_time = Column(DateTime, nullable=False)
+    start_time = Column(DateTime)
+    end_time = Column(DateTime)
     priority = Column(Integer, default=0)
     location = Column(String(255))
 
     __table_args__ = (
-        Index("idx_activity_user", "user_id"),
-        Index("idx_activity_category", "category_id"),
-        Index("idx_activity,_reminder", "reminder_id"),
-        Index("idx_activity_date", "date"),
-        Index("idx_activity_user_date", "user_id", "date")
+        Index("idx_event_user", "user_id"),
+        Index("idx_event_category", "category_id"),
+        Index("idx_event_reminder", "reminder_id"),
+        Index("idx_event_date", "date"),
+        Index("idx_event_user_date", "user_id", "date")
     )
 
-    user = relationship("User", back_populates="activities")
-    reminder = relationship("Reminder", back_populates="activity")
-    category = relationship("Category", back_populates="activity")
+    user = relationship("User", back_populates="events")
+    reminder = relationship("Reminder", back_populates="event")
+    category = relationship("Category", back_populates="event")
