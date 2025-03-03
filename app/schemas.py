@@ -26,3 +26,19 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True # auto conversion from ORM model to pydantic schema
+
+class CategoryCreate(BaseModel):
+    category_id: int
+    user_id: int
+    entity_type: int
+    name: str
+    description: str
+
+class CategoryResponse(BaseMode):
+    category_id: int
+    entity_type: int
+    name: str
+    description: str
+
+    class Config:
+        from_attributes = True # auto conversion from ORM model to pydantic schema
