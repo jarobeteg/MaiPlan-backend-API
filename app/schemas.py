@@ -34,7 +34,7 @@ class CategoryCreate(BaseModel):
     name: str
     description: str
 
-class CategoryResponse(BaseMode):
+class CategoryResponse(BaseModel):
     category_id: int
     entity_type: int
     name: str
