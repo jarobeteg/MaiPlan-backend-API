@@ -4,7 +4,7 @@ from models import Category
 from schemas import CategoryCreate, CategoryResponse
 
 async def new_category(db: AsyncSession, category: CategoryCreate):
-    new_category = Category(category_id=category.category_id, user_id=category.user_id, entity_type=category.entity_type, name=category.name, description=category.description)
+    new_category = Category(category_id=category.category_id, user_id=category.user_id, entity_type=category.entity_type, name=category.name, description=category.description, color=category.color, icon=category.icon)
     db.add(new_category)
     await db.commit()
 

@@ -151,6 +151,8 @@ class Category(Base):
     entity_type = Column(Integer, nullable=False)
     name = Column(String(255), nullable=False)
     description = Column(Text)
+    color = Column(String(32), nullable=False)
+    icon = Column(String(32), nullable=False)
 
     __table_args__ = (
         CheckConstraint("entity_type = ANY (ARRAY[1, 2, 3])", name="ck_entity_type"),
