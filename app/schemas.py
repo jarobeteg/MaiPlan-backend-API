@@ -29,7 +29,6 @@ class UserResponse(BaseModel):
 
 class CategoryCreate(BaseModel):
     user_id: int
-    entity_type: int
     name: str
     description: str
     color: str
@@ -37,7 +36,6 @@ class CategoryCreate(BaseModel):
 
 class CategoryResponse(BaseModel):
     category_id: int
-    entity_type: int
     name: str
     description: str
     color: str
