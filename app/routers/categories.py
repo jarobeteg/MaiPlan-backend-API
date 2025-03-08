@@ -7,8 +7,15 @@ from typing import List
 
 router = APIRouter()
 
+def validate_category_data(name: str, description: str):
+    if not name.strip():
+        raise HTTPException(status_code=400, detail={"code": 1, "message": "Name field cannot be empty!"})
+    if not description.strip():
+        raise HTTPException(status_code=400, detail={"code": 2, "message": "Description field cannot be empty!"})
+
 @router.post("/create-category")
 async def create_category(category: CategoryCreate, db: AsyncSession = Depends(get_db)):
+    validate_category_data(category.name, category.description)
     await new_category(db, category)
 
 @router.get("/get-all-category", response_model=List[CategoryResponse])
