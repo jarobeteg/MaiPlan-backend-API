@@ -153,8 +153,8 @@ class Category(Base):
     color = Column(String(32), nullable=False)
     icon = Column(String(32), nullable=False)
 
-    __table_args__ = (
-         Index("idx_category_user", "user_id")
+    __table_arg__ = (
+        Index("idx_category_user", "user_id")
     )
 
     user = relationship("User", back_populates="categories")
