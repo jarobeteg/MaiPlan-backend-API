@@ -11,3 +11,23 @@ async def new_category(db: AsyncSession, category: CategoryCreate):
 async def get_categories(db: AsyncSession, user_id: int):
     result = await db.execute(select(Category).where(Category.user_id == user_id))
     return result.scalars().all()
+
+async def remake_category(db: AsyncSession, category_data: CategoryResponse):
+    result = await db.execute(select(Category).where(Category.category_id == category_data.category_id))
+    category = result.scalars().first()
+
+    category.name = category_data.name
+    category.description = category_data.description
+    category.color = category_data.color
+    category.icon = category_data.icon
+
+    await db.commit()
+    await db.refresh(category)
+
+async def remove_category(db: AsyncSession, category_id: int):
+    result = await db.execute(select(Category).where(Category.category_id == category_id))
+    category = result.scalars().first()
+
+    await db.delete(category)
+    await db.commit()
+    return True
