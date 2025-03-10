@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import Category
@@ -15,6 +16,9 @@ async def get_categories(db: AsyncSession, user_id: int):
 async def remake_category(db: AsyncSession, category_data: CategoryResponse):
     result = await db.execute(select(Category).where(Category.category_id == category_data.category_id))
     category = result.scalars().first()
+    
+    if not category:
+        raise HTTPException(status_code=404, detail={"code": 3, "message": "Category not found!"})
 
     category.name = category_data.name
     category.description = category_data.description
@@ -27,6 +31,9 @@ async def remake_category(db: AsyncSession, category_data: CategoryResponse):
 async def remove_category(db: AsyncSession, category_id: int):
     result = await db.execute(select(Category).where(Category.category_id == category_id))
     category = result.scalars().first()
+
+    if not category:
+        raise HTTPException(status_code=404, detail={"code": 3, "message": "Category not found!"})
 
     await db.delete(category)
     await db.commit()
