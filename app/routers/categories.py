@@ -27,11 +27,9 @@ async def update_category(category: CategoryResponse, db: AsyncSession = Depends
     validate_category_data(category.name, category.description)
     await remake_category(db, category)
 
-@router.delete("/{category_id}", status_code=204)
+@router.delete("/{category_id}")
 async def delete_category(category_id: int, db: AsyncSession = Depends(get_db)):
     deleted = await remove_category(db, category_id)
 
     if not deleted:
         raise HTTPException(status_code=404, detail={"code": 3, "message": "Category not found!"})
-
-    return
