@@ -30,14 +30,12 @@ class Reminder(Base):
 
     reminder_id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False)
-    entity_type = Column(Integer, nullable=False)
     reminder_time = Column(DateTime, nullable=False)
     frequency = Column(Integer, default=0)
     status = Column(Integer, default=1)
     message = Column(Text)
 
-    __table_args__ = (
-        CheckConstraint("entity_type = ANY (ARRAY[1, 2, 3])", name="ck_entity_type"),
+    __table_arg__ = (
         Index("idx_reminder_user", "user_id")
     )
 
