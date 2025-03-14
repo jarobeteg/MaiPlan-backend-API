@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, time
 
 class Token(BaseModel):
     access_token: str
@@ -59,6 +59,34 @@ class ReminderResponse(BaseModel):
     frequency: int
     status: int
     message: str
+
+    class Config:
+        from_attributes = True # auto conversion from ORM model to pydantic schema
+
+class EventCreate(BaseModel):
+    event_id: int
+    user_id: int
+    category_id: int
+    reminder_id: int
+    title: str
+    description: str
+    date: datetime
+    start_time: time
+    end_time: time
+    priority: int
+    location: str
+
+class EventResponse(BaseModel):
+    event_id: int
+    category_id: int
+    reminder_id: int
+    title: str
+    description: str
+    date: datetime
+    start_time: time
+    end_time: time
+    priority: int
+    location: str
 
     class Config:
         from_attributes = True # auto conversion from ORM model to pydantic schema
