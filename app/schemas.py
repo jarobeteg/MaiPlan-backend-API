@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from datetime import datetime, time
+from datetime import datetime, date, time
 
 class Token(BaseModel):
     access_token: str
@@ -70,7 +70,7 @@ class EventCreate(BaseModel):
     reminder_id: int
     title: str
     description: str
-    date: datetime
+    date: date
     start_time: time
     end_time: time
     priority: int
@@ -82,7 +82,7 @@ class EventResponse(BaseModel):
     reminder_id: int
     title: str
     description: str
-    date: datetime
+    date: date
     start_time: time
     end_time: time
     priority: int

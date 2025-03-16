@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Numeric, String, Text, DateTime, Boolean, ForeignKey, Index, CheckConstraint, UniqueConstraint
+from sqlalchemy import Column, Integer, Numeric, String, Text, DateTime, Date, Time, Boolean, ForeignKey, Index, CheckConstraint, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -105,8 +105,8 @@ class HealthReminder(Base):
     reminder_id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False)
     type = Column(Integer, nullable=False)
-    start_time = Column(DateTime, nullable=False)
-    end_time = Column(DateTime, nullable=False)
+    start_time = Column(Time, nullable=False)
+    end_time = Column(Time, nullable=False)
     frequency = Column(Integer, nullable=False)
 
     __table_args__ = (
@@ -169,9 +169,9 @@ class Event(Base):
     reminder_id = Column(Integer, ForeignKey("reminder.reminder_id", ondelete="SET NULL"))
     title = Column(String(255), nullable=False)
     description = Column(Text)
-    date = Column(DateTime, nullable=False)
-    start_time = Column(DateTime)
-    end_time = Column(DateTime)
+    date = Column(Date, nullable=False)
+    start_time = Column(Time)
+    end_time = Column(Time)
     priority = Column(Integer, default=0)
     location = Column(String(255))
 
