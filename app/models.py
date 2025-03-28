@@ -35,10 +35,12 @@ class Reminder(Base):
     status = Column(Integer, default=1)
     message = Column(Text)
 
+    # indexes and other constraints
     __table_arg__ = (
         Index("idx_reminder_user", "user_id")
     )
 
+    # relationships to other tables, contstraints
     user = relationship("User", back_populates="reminders")
     finance = relationship("Finance", back_populates="reminder")
     event = relationship("Event", back_populates="reminder")
@@ -56,12 +58,14 @@ class Note(Base):
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
+    # indexes and other constraints
     __table_args__ = (
         Index("idx_note_user", "user_id"),
         Index("idx_note_category", "category_id"),
         Index("idx_note_reminder", "reminder_id")
     )
 
+    # relationships to other tables, contstraints
     user = relationship("User", back_populates="notes")
     category = relationship("Category", back_populates="note")
     reminder = relationship("Reminder", back_populates="note")
@@ -75,11 +79,13 @@ class List(Base):
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
+    # indexes and other constraints
     __table_args__ = (
         UniqueConstraint("user_id", "title", name="uq_list_title"),
         Index("idx_list_user", "user_id")
     )
 
+    # relationships to other tables, contstraints
     user = relationship("User", back_populates="lists")
     list_items = relationship("ListItem", cascade="all, delete-orphan", back_populates="list")
 
@@ -92,11 +98,13 @@ class ListItem(Base):
     quantity = Column(Integer)
     status = Column(Boolean, default=False)
 
+    # indexes and other constraints
     __table_args__ = (
         UniqueConstraint("list_id", "name", name="uq_item_name"),
         Index("idx_list_item", "list_id")
     )
 
+    # relationships to other tables, contstraints
     list = relationship("List", back_populates="list_items")
 
 class HealthReminder(Base):
@@ -109,11 +117,13 @@ class HealthReminder(Base):
     end_time = Column(Time, nullable=False)
     frequency = Column(Integer, nullable=False)
 
+    # indexes and other constraints
     __table_args__ = (
         CheckConstraint("type = ANY (ARRAY[1, 2, 3])", name="ck_type"),
         Index("idx_health_reminder_user", "user_id")
     )
 
+    # relationships to other tables, contstraints
     user = relationship("User", back_populates="health_reminders")
 
 class Finance(Base):
@@ -128,6 +138,7 @@ class Finance(Base):
     expense_date = Column(DateTime)
     description = Column(Text)
 
+    # indexes and other constraints
     __table_args__ = (
         Index("idx_finance_user", "user_id"),
         Index("idx_finance_category", "category_id"),
@@ -137,6 +148,7 @@ class Finance(Base):
         Index("idx_finance_user_date", "user_id", "expense_date")
     )
 
+    # relationships to other tables, contstraints
     user = relationship("User", back_populates="finances")
     reminder = relationship("Reminder", back_populates="finance")
     category = relationship("Category", back_populates="finance")
@@ -151,10 +163,12 @@ class Category(Base):
     color = Column(String(32), nullable=False)
     icon = Column(String(32), nullable=False)
 
+    # indexes and other constraints
     __table_arg__ = (
         Index("idx_category_user", "user_id")
     )
 
+    # relationships to other tables, contstraints
     user = relationship("User", back_populates="categories")
     note = relationship("Note", back_populates="category")
     event = relationship("Event", back_populates="category")
@@ -175,6 +189,7 @@ class Event(Base):
     priority = Column(Integer, default=0)
     location = Column(String(255))
 
+    # indexes and other constraints
     __table_args__ = (
         Index("idx_event_user", "user_id"),
         Index("idx_event_category", "category_id"),
@@ -183,6 +198,7 @@ class Event(Base):
         Index("idx_event_user_date", "user_id", "date")
     )
 
+    # relationships to other tables, contstraints
     user = relationship("User", back_populates="events")
     reminder = relationship("Reminder", back_populates="event")
     category = relationship("Category", back_populates="event")
