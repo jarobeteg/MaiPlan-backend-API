@@ -2,3 +2,9 @@ __pycache__
 .env
 .fastAPI
 /app/run_server.sh
+/.idea/.gitignore
+/.idea/MaiPlan-backend-API.iml
+/.idea/misc.xml
+/.idea/modules.xml
+/.idea/inspectionProfiles/profiles_settings.xml
+/.idea/vcs.xml
