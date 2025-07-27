@@ -73,7 +73,7 @@ class Note(Base):
 class List(Base):
     __tablename__ = "list"
     
-    list_id = Column(Integer, primary_key=True, autoincrement=False)
+    list_id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False)
     title = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=func.now())
