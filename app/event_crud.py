@@ -12,7 +12,6 @@ async def new_event(db: AsyncSession, event: EventCreate):
         event (EventCreate): Holds all the event data that needs to be added to the database
     """
     new_event = Event(
-            event_id=event.event_id,
             user_id=event.user_id,
             category_id=event.category_id,
             reminder_id=event.reminder_id,
@@ -39,3 +38,16 @@ async def get_event(db: AsyncSession, event_id: int):
     """
     result = await db.execute(select(Event).where(Event.event_id == event_id))
     return result.scalars().first()
+
+async def get_events(db: AsyncSession, user_id: int):
+    """ Fetches all events for a given user
+
+    Args:
+        db (AsyncSession): The database session
+        user_id (int): The id of the user whose events should be fetched
+
+    Returns:
+        List[EventResponse]: A list of events connected with the given user
+    """
+    result = await db.execute(select(Event).where(Event.user_id == user_id))
+    return result.scalars().all()

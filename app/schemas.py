@@ -46,7 +46,6 @@ class CategoryResponse(BaseModel):
         from_attributes = True # auto conversion from ORM model to pydantic schema
 
 class ReminderCreate(BaseModel):
-    reminder_id: int
     user_id: int
     reminder_time: datetime
     frequency: int
@@ -64,7 +63,6 @@ class ReminderResponse(BaseModel):
         from_attributes = True # auto conversion from ORM model to pydantic schema
 
 class EventCreate(BaseModel):
-    event_id: int
     user_id: int
     category_id: int
     reminder_id: int

@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from schemas import EventCreate, EventResponse
-from event_crud import new_event, get_event
+from event_crud import new_event, get_event, get_events
+from typing import List
 
 router = APIRouter()
 
@@ -28,3 +29,16 @@ async def get_event_by_id(event_id: int, db: AsyncSession = Depends(get_db)):
         EventResponse: The correct event data fetched by the id
     """
     return await get_event(db, event_id)
+
+@router.get("/get-all-event", response_model=List[EventResponse])
+async def get_all_event(user_id: int, db: AsyncSession = Depends(get_db)):
+    """ This API fetches all the events into a list
+
+    Args:
+        user_id (int): An id to indentify all the events connected to this user
+        db (AsyncSession): The database session dependency
+
+    Returns:
+        List[EventResponse]: A list of events
+    """
+    return await get_events(db, user_id)
