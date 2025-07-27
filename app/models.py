@@ -142,7 +142,7 @@ class Finance(Base):
     __table_args__ = (
         Index("idx_finance_user", "user_id"),
         Index("idx_finance_category", "category_id"),
-        Index("idx_finance,_reminder", "reminder_id"),
+        Index("idx_finance_reminder", "reminder_id"),
         Index("idx_finance_type", "type"),
         Index("idx_finance_expense_date", "expense_date"),
         Index("idx_finance_user_date", "user_id", "expense_date")
