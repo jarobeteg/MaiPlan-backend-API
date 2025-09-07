@@ -13,8 +13,7 @@ class UserResetPassword(BaseModel):
 class UserRegister(BaseModel):
     email: str
     username: str
-    password: str
-    password_again: str
+    password_hash: str
 
 class UserLogin(BaseModel):
     email: str
