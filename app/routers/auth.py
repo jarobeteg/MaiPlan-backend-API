@@ -104,20 +104,8 @@ def get_access_token(user_id: str):
     token_data = {"sub": user_id}
     return create_access_token(data=token_data)
 
-@router.post("/register", response_model=Token)
+@router.post("/register", response_model=UserResponse)
 async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
-    """ This API Registers a new user in the Database
-
-    Args:
-        user (UserRegister): Holds all the data that needs to be registered into the database
-        db (AsyncSession): The database session dependency
-
-    Returns:
-        Token: When the user have been successfully registered a Token is generated and passed forward to the frontend
-
-    Raises:
-        HTTPException: If there are any validation errors from the UserRegister data
-    """
     user.email = validate_email(user.email)
     user.username = user.username.strip()
 
@@ -128,12 +116,13 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
     if await get_user_by_username(db, user.username):
         raise HTTPException(status_code=400, detail={"code": 10, "message": "Username is already taken!"})
 
-    user.password = validate_password(user.password)
-    validate_password_strength(user.password)
-    validate_passwords(user.password, user.password_again.strip())
     new_user = await create_user(db, user)
 
-    return Token(access_token=get_access_token(new_user.user_id), token_type="bearer")
+    return UserResponse(
+        user_id=new_user.user_id,
+        email=new_user.email,
+        username=new_user.username
+    )
 
 @router.post("/login", response_model=Token)
 async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
