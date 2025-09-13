@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import get_db
-from app.schemas import ReminderCreate, ReminderResponse
-from app.reminder_crud import add_reminder, get_reminder, get_reminders
+from ..database import get_db
+from ..schemas import ReminderCreate, ReminderResponse
+from ..crud.reminder_crud import add_reminder, get_reminder, get_reminders
 from typing import List
 
 router = APIRouter()

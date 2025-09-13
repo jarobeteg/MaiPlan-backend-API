@@ -1,7 +1,7 @@
 from passlib.context import CryptContext
 import re
 
-# deprecated auto means that if brcypt gets a new update then passlib will rehash old passwords
+# deprecated auto means that if bcrypt gets a new update then passlib will rehash old passwords
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # unused code but I leave it here just in case

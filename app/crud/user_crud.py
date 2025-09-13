@@ -1,8 +1,8 @@
 from sqlalchemy.sql import expression
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from models import User
-from schemas import UserRegister, UserResetPassword
+from ..models import User
+from ..schemas import UserRegister, UserResetPassword
 
 async def get_user_by_id(db: AsyncSession, user_id: int):
     stmt = select(User).where(expression.column("user_id") == user_id)

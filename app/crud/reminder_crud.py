@@ -1,8 +1,8 @@
 from sqlalchemy.sql import expression
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from models import Reminder
-from schemas import ReminderCreate
+from ..models import Reminder
+from ..schemas import ReminderCreate
 
 async def add_reminder(db: AsyncSession, reminder: ReminderCreate):
     new_reminder = Reminder(user_id=reminder.user_id, reminder_time=reminder.reminder_time, frequency=reminder.frequency, status=reminder.status, message=reminder.message)

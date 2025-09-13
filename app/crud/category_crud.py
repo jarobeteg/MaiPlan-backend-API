@@ -2,8 +2,8 @@ from fastapi import HTTPException
 from sqlalchemy.sql import expression
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from models import Category
-from schemas import CategoryCreate, CategoryResponse
+from ..models import Category
+from ..schemas import CategoryCreate, CategoryResponse
 
 async def add_category(db: AsyncSession, category: CategoryCreate):
     new_category = Category(user_id=category.user_id, name=category.name, description=category.description, color=category.color, icon=category.icon)
