@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..database import get_db
-from ..schemas import EventCreate, EventResponse
-from ..crud.event_crud import add_event, get_event, get_events
+from database import get_db
+from schemas import EventCreate, EventResponse
+from crud.event_crud import add_event, get_event, get_events
 from typing import List
 
 router = APIRouter()
