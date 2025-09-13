@@ -16,7 +16,7 @@ class User(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     password_hash = Column(Text, nullable=False)
 
-    # relationships to other tables, contstraints
+    # relationships to other tables, constraints
     reminders = relationship("Reminder", cascade="all, delete-orphan", back_populates="user")
     notes = relationship("Note", cascade="all, delete-orphan", back_populates="user")
     lists = relationship("List", cascade="all, delete-orphan", back_populates="user")
@@ -40,7 +40,7 @@ class Reminder(Base):
         Index("idx_reminder_user", "user_id")
     )
 
-    # relationships to other tables, contstraints
+    # relationships to other tables, constraints
     user = relationship("User", back_populates="reminders")
     finance = relationship("Finance", back_populates="reminder")
     event = relationship("Event", back_populates="reminder")
@@ -65,7 +65,7 @@ class Note(Base):
         Index("idx_note_reminder", "reminder_id")
     )
 
-    # relationships to other tables, contstraints
+    # relationships to other tables, constraints
     user = relationship("User", back_populates="notes")
     category = relationship("Category", back_populates="note")
     reminder = relationship("Reminder", back_populates="note")
@@ -85,7 +85,7 @@ class List(Base):
         Index("idx_list_user", "user_id")
     )
 
-    # relationships to other tables, contstraints
+    # relationships to other tables, constraints
     user = relationship("User", back_populates="lists")
     list_items = relationship("ListItem", cascade="all, delete-orphan", back_populates="list")
 
@@ -104,7 +104,7 @@ class ListItem(Base):
         Index("idx_list_item", "list_id")
     )
 
-    # relationships to other tables, contstraints
+    # relationships to other tables, constraints
     list = relationship("List", back_populates="list_items")
 
 class HealthReminder(Base):
@@ -123,7 +123,7 @@ class HealthReminder(Base):
         Index("idx_health_reminder_user", "user_id")
     )
 
-    # relationships to other tables, contstraints
+    # relationships to other tables, constraints
     user = relationship("User", back_populates="health_reminders")
 
 class Finance(Base):
@@ -148,7 +148,7 @@ class Finance(Base):
         Index("idx_finance_user_date", "user_id", "expense_date")
     )
 
-    # relationships to other tables, contstraints
+    # relationships to other tables, constraints
     user = relationship("User", back_populates="finances")
     reminder = relationship("Reminder", back_populates="finance")
     category = relationship("Category", back_populates="finance")
@@ -168,7 +168,7 @@ class Category(Base):
         Index("idx_category_user", "user_id")
     )
 
-    # relationships to other tables, contstraints
+    # relationships to other tables, constraints
     user = relationship("User", back_populates="categories")
     note = relationship("Note", back_populates="category")
     event = relationship("Event", back_populates="category")
@@ -198,7 +198,7 @@ class Event(Base):
         Index("idx_event_user_date", "user_id", "date")
     )
 
-    # relationships to other tables, contstraints
+    # relationships to other tables, constraints
     user = relationship("User", back_populates="events")
     reminder = relationship("Reminder", back_populates="event")
     category = relationship("Category", back_populates="event")

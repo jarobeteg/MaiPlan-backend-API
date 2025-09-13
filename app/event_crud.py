@@ -1,16 +1,10 @@
-from fastapi import HTTPException
-from sqlalchemy.future import select
+from sqlalchemy.sql import expression
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import Event
 from schemas import EventCreate, EventResponse
 
-async def new_event(db: AsyncSession, event: EventCreate):
-    """ Creates a new event and adds it to the database
-    
-    Args:
-        db (AsyncSession): The database session
-        event (EventCreate): Holds all the event data that needs to be added to the database
-    """
+async def add_event(db: AsyncSession, event: EventCreate):
     new_event = Event(
             user_id=event.user_id,
             category_id=event.category_id,
@@ -27,27 +21,11 @@ async def new_event(db: AsyncSession, event: EventCreate):
     await db.commit()
 
 async def get_event(db: AsyncSession, event_id: int):
-    """ Fetches an event by given id
-    
-    Args:
-        db (AsyncSession): The database session
-        event_id (int): The id of the event to fetch
-
-    Returns:
-        EventResponse: The event data connected to the given id
-    """
-    result = await db.execute(select(Event).where(Event.event_id == event_id))
+    stmt = select(Event).where(expression.column("event_id") == event_id)
+    result = await db.execute(stmt)
     return result.scalars().first()
 
 async def get_events(db: AsyncSession, user_id: int):
-    """ Fetches all events for a given user
-
-    Args:
-        db (AsyncSession): The database session
-        user_id (int): The id of the user whose events should be fetched
-
-    Returns:
-        List[EventResponse]: A list of events connected with the given user
-    """
-    result = await db.execute(select(Event).where(Event.user_id == user_id))
+    stmt = select(Event).where(expression.column("user_id") == user_id)
+    result = await db.execute(stmt)
     return result.scalars().all()

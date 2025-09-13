@@ -4,7 +4,7 @@ from database import engine
 from routers import raspi, auth, categories, reminders, events
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(api: FastAPI):
     # app starts here
     yield
     await engine.dispose()
