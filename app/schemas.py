@@ -7,16 +7,18 @@ class Token(BaseModel):
 
 class UserResetPassword(BaseModel):
     email: str
-    password_hash: str
+    password: str
+    password_again: str
 
 class UserRegister(BaseModel):
     email: str
     username: str
-    password_hash: str
+    password: str
+    password_again: str
 
 class UserLogin(BaseModel):
     email: str
-    password_hash: str
+    password: str
 
 class UserResponse(BaseModel):
     user_id: int
