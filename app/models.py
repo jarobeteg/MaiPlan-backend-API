@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Numeric, String, Text, DateTime, Date, Time, Boolean, ForeignKey, Index, CheckConstraint, UniqueConstraint
+from sqlalchemy import Column, Integer, Numeric, String, Text, DateTime, Date, Time, Boolean, ForeignKey, Index, CheckConstraint, UniqueConstraint, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -19,6 +19,14 @@ class User(Base):
     sync_state = Column(Integer, default=0)
     is_deleted = Column(Integer, default=0)
     server_id = Column(Integer, nullable=True)
+
+    # indexes and other constraints
+    __table_args__ = (
+        Index("idx_user_last_modified", "last_modified"),
+        Index("idx_user_sync_state", "sync_state"),
+        Index("idx_user_server_id", "server_id"),
+        Index("idx_user_active", "user_id", postgresql_where=text("is_deleted = 0"))
+    )
 
     # relationships to other tables, constraints
     reminders = relationship("Reminder", cascade="all, delete-orphan", back_populates="user")
@@ -44,8 +52,12 @@ class Reminder(Base):
     server_id = Column(Integer, nullable=True)
 
     # indexes and other constraints
-    __table_arg__ = (
-        Index("idx_reminder_user", "user_id")
+    __table_args__ = (
+        Index("idx_reminder_user", "user_id"),
+        Index("idx_reminder_last_modified", "last_modified"),
+        Index("idx_reminder_sync_state", "sync_state"),
+        Index("idx_reminder_server_id", "server_id"),
+        Index("idx_reminder_active", "reminder_id", postgresql_where=text("is_deleted = 0"))
     )
 
     # relationships to other tables, constraints
@@ -74,7 +86,11 @@ class Note(Base):
     __table_args__ = (
         Index("idx_note_user", "user_id"),
         Index("idx_note_category", "category_id"),
-        Index("idx_note_reminder", "reminder_id")
+        Index("idx_note_reminder", "reminder_id"),
+        Index("idx_note_last_modified", "last_modified"),
+        Index("idx_note_sync_state", "sync_state"),
+        Index("idx_note_server_id", "server_id"),
+        Index("idx_note_active", "note_id", postgresql_where=text("is_deleted = 0"))
     )
 
     # relationships to other tables, constraints
@@ -98,7 +114,11 @@ class List(Base):
     # indexes and other constraints
     __table_args__ = (
         UniqueConstraint("user_id", "title", name="uq_list_title"),
-        Index("idx_list_user", "user_id")
+        Index("idx_list_user", "user_id"),
+        Index("idx_list_last_modified", "last_modified"),
+        Index("idx_list_sync_state", "sync_state"),
+        Index("idx_list_server_id", "server_id"),
+        Index("idx_list_active", "list_id", postgresql_where=text("is_deleted = 0"))
     )
 
     # relationships to other tables, constraints
@@ -121,7 +141,11 @@ class ListItem(Base):
     # indexes and other constraints
     __table_args__ = (
         UniqueConstraint("list_id", "name", name="uq_item_name"),
-        Index("idx_list_item", "list_id")
+        Index("idx_list_item", "list_id"),
+        Index("idx_item_last_modified", "last_modified"),
+        Index("idx_item_sync_state", "sync_state"),
+        Index("idx_item_server_id", "server_id"),
+        Index("idx_item_active", "item_id", postgresql_where=text("is_deleted = 0"))
     )
 
     # relationships to other tables, constraints
@@ -144,7 +168,11 @@ class HealthReminder(Base):
     # indexes and other constraints
     __table_args__ = (
         CheckConstraint("type = ANY (ARRAY[1, 2, 3])", name="ck_type"),
-        Index("idx_health_reminder_user", "user_id")
+        Index("idx_health_reminder_user", "user_id"),
+        Index("idx_reminder_last_modified", "last_modified"),
+        Index("idx_reminder_sync_state", "sync_state"),
+        Index("idx_reminder_server_id", "server_id"),
+        Index("idx_reminder_active", "reminder_id", postgresql_where=text("is_deleted = 0"))
     )
 
     # relationships to other tables, constraints
@@ -173,7 +201,11 @@ class Finance(Base):
         Index("idx_finance_reminder", "reminder_id"),
         Index("idx_finance_type", "type"),
         Index("idx_finance_expense_date", "expense_date"),
-        Index("idx_finance_user_date", "user_id", "expense_date")
+        Index("idx_finance_user_date", "user_id", "expense_date"),
+        Index("idx_finance_last_modified", "last_modified"),
+        Index("idx_finance_sync_state", "sync_state"),
+        Index("idx_finance_server_id", "server_id"),
+        Index("idx_finance_active", "finance_id", postgresql_where=text("is_deleted = 0"))
     )
 
     # relationships to other tables, constraints
@@ -196,8 +228,12 @@ class Category(Base):
     server_id = Column(Integer, nullable=True)
 
     # indexes and other constraints
-    __table_arg__ = (
-        Index("idx_category_user", "user_id")
+    __table_args__ = (
+        Index("idx_category_user", "user_id"),
+        Index("idx_category_last_modified", "last_modified"),
+        Index("idx_category_sync_state", "sync_state"),
+        Index("idx_category_server_id", "server_id"),
+        Index("idx_category_active", "category_id", postgresql_where=text("is_deleted = 0"))
     )
 
     # relationships to other tables, constraints
@@ -231,7 +267,11 @@ class Event(Base):
         Index("idx_event_category", "category_id"),
         Index("idx_event_reminder", "reminder_id"),
         Index("idx_event_date", "date"),
-        Index("idx_event_user_date", "user_id", "date")
+        Index("idx_event_user_date", "user_id", "date"),
+        Index("idx_event_last_modified", "last_modified"),
+        Index("idx_event_sync_state", "sync_state"),
+        Index("idx_event_server_id", "server_id"),
+        Index("idx_event_active", "event_id", postgresql_where=text("is_deleted = 0"))
     )
 
     # relationships to other tables, constraints
