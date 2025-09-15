@@ -15,6 +15,10 @@ class User(Base):
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     password_hash = Column(Text, nullable=False)
+    last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
+    sync_state = Column(Integer, default=0)
+    is_deleted = Column(Integer, default=0)
+    server_id = Column(Integer, nullable=True)
 
     # relationships to other tables, constraints
     reminders = relationship("Reminder", cascade="all, delete-orphan", back_populates="user")
@@ -34,6 +38,10 @@ class Reminder(Base):
     frequency = Column(Integer, default=0)
     status = Column(Integer, default=1)
     message = Column(Text)
+    last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
+    sync_state = Column(Integer, default=0)
+    is_deleted = Column(Integer, default=0)
+    server_id = Column(Integer, nullable=True)
 
     # indexes and other constraints
     __table_arg__ = (
@@ -57,6 +65,10 @@ class Note(Base):
     content = Column(Text)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
+    sync_state = Column(Integer, default=0)
+    is_deleted = Column(Integer, default=0)
+    server_id = Column(Integer, nullable=True)
 
     # indexes and other constraints
     __table_args__ = (
@@ -78,6 +90,10 @@ class List(Base):
     title = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
+    sync_state = Column(Integer, default=0)
+    is_deleted = Column(Integer, default=0)
+    server_id = Column(Integer, nullable=True)
 
     # indexes and other constraints
     __table_args__ = (
@@ -97,6 +113,10 @@ class ListItem(Base):
     name = Column(String(255), nullable=False)
     quantity = Column(Integer)
     status = Column(Boolean, default=False)
+    last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
+    sync_state = Column(Integer, default=0)
+    is_deleted = Column(Integer, default=0)
+    server_id = Column(Integer, nullable=True)
 
     # indexes and other constraints
     __table_args__ = (
@@ -116,6 +136,10 @@ class HealthReminder(Base):
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
     frequency = Column(Integer, nullable=False)
+    last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
+    sync_state = Column(Integer, default=0)
+    is_deleted = Column(Integer, default=0)
+    server_id = Column(Integer, nullable=True)
 
     # indexes and other constraints
     __table_args__ = (
@@ -137,6 +161,10 @@ class Finance(Base):
     expense_amount = Column(Numeric(10, 2), nullable=False)
     expense_date = Column(DateTime)
     description = Column(Text)
+    last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
+    sync_state = Column(Integer, default=0)
+    is_deleted = Column(Integer, default=0)
+    server_id = Column(Integer, nullable=True)
 
     # indexes and other constraints
     __table_args__ = (
@@ -162,6 +190,10 @@ class Category(Base):
     description = Column(Text)
     color = Column(String(32), nullable=False)
     icon = Column(String(32), nullable=False)
+    last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
+    sync_state = Column(Integer, default=0)
+    is_deleted = Column(Integer, default=0)
+    server_id = Column(Integer, nullable=True)
 
     # indexes and other constraints
     __table_arg__ = (
@@ -188,6 +220,10 @@ class Event(Base):
     end_time = Column(Time)
     priority = Column(Integer, default=0)
     location = Column(String(255))
+    last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
+    sync_state = Column(Integer, default=0)
+    is_deleted = Column(Integer, default=0)
+    server_id = Column(Integer, nullable=True)
 
     # indexes and other constraints
     __table_args__ = (
