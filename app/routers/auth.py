@@ -45,7 +45,7 @@ def get_access_token(user_id: int):
     token_data = {"sub": user_id}
     return create_access_token(data=token_data)
 
-@router.post("/register", response_model=Token)
+@router.post("/register", response_model=AuthResponse)
 async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
     user.email = validate_email(user.email)
     user.username = user.username.strip()
@@ -64,7 +64,7 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
 
     return AuthResponse(access_token=get_access_token(new_user.user_id), user=new_user)
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=AuthResponse)
 async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
     user.email = validate_email(user.email)
     existing_user = await validate_email_existence(db, user.email)
