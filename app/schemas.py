@@ -28,6 +28,27 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True # auto conversion from ORM model to pydantic schema
 
+class AuthResponse(BaseModel):
+    access_token: str
+    user: UserResponse
+
+    class Config:
+        from_attributes = True # auto conversion from ORM model to pydantic schema
+
+class AuthSync(BaseModel):
+    user_id: int
+    server_id: int
+    email: str
+    username: str
+    balance: float
+    password_hash: str
+    last_modified: datetime
+    sync_state: int
+    is_deleted: int
+
+    class Config:
+        from_attributes = True # auto conversion from ORM model to pydantic schema
+
 class CategoryCreate(BaseModel):
     user_id: int
     name: str

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
-from schemas import UserRegister, UserLogin, UserResponse, UserResetPassword, Token
+from schemas import UserRegister, UserLogin, UserResponse, UserResetPassword, Token, AuthResponse
 from crud.user_crud import get_user_by_email, get_user_by_username, create_user, reset_user_password
 from utils.auth_utils import create_access_token, get_current_user
 from utils.password_utils import verify_password, is_valid_password, do_passwords_match
@@ -62,7 +62,7 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
     validate_passwords(user.password, user.password_again.strip())
     new_user = await create_user(db, user)
 
-    return Token(access_token=get_access_token(new_user.user_id), token_type="bearer")
+    return AuthResponse(access_token=get_access_token(new_user.user_id), user=new_user)
 
 @router.post("/login", response_model=Token)
 async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
@@ -73,9 +73,9 @@ async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
     if not verify_password(user.password, existing_user.password_hash):
         raise HTTPException(status_code=401, detail={"code": 8, "message": "Incorrect password!"})
 
-    return Token(access_token=get_access_token(existing_user.user_id), token_type="bearer")
+    return AuthResponse(access_token=get_access_token(existing_user.user_id), user=existing_user)
 
-@router.post("/reset-password", response_model=Token)
+@router.post("/reset-password", response_model=AuthResponse)
 async def reset_password(user: UserResetPassword, db: AsyncSession = Depends(get_db)):
     user.email = validate_email(user.email)
     existing_user = await validate_email_existence(db, user.email)
@@ -85,13 +85,13 @@ async def reset_password(user: UserResetPassword, db: AsyncSession = Depends(get
     validate_passwords(user.password, user.password_again.strip())
     await reset_user_password(db, user)
 
-    return Token(access_token=get_access_token(existing_user.user_id), token_type="bearer")
+    return AuthResponse(access_token=get_access_token(existing_user.user_id), user=existing_user)
 
 @router.post("/token-refresh", response_model=Token)
 async def token_refresh(current_user: UserResponse = Depends(get_current_user)):
     return Token(access_token=get_access_token(current_user.user_id), token_type="bearer")
 
 # an example of a protected route by jwt
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=AuthResponse)
 async def get_my_profile(current_user: UserResponse = Depends(get_current_user)):
-    return current_user
+    return AuthResponse(access_token=get_access_token(current_user.user_id), user=current_user)

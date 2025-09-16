@@ -35,7 +35,7 @@ async def reset_user_password(db: AsyncSession, user: UserResetPassword):
 
 async def create_user(db: AsyncSession, user: UserRegister):
     hashed_password = hash_password(user.password)
-    new_user = User(email=user.email, username=user.username, password_hash=hashed_password)
+    new_user = User(email=user.email, username=user.username, password_hash=hashed_password, sync_state=2)
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
