@@ -47,7 +47,7 @@ class AuthSync(BaseModel):
     created_at: datetime
     updated_at: datetime
     password_hash: str
-    last_modified: datetime
+    last_modified: int
     sync_state: int
     is_deleted: int
 
