@@ -123,7 +123,7 @@ async def auth_sync(request: SyncRequest[AuthSync], db: AsyncSession = Depends(g
             acknowledged.append(change)
         else:
             new_user = User(
-                user_id=change.user_id,
+                user_id=change.user_id if change.user_id else None,
                 email=change.email,
                 username=change.username,
                 balance=change.balance,
@@ -139,7 +139,7 @@ async def auth_sync(request: SyncRequest[AuthSync], db: AsyncSession = Depends(g
     await db.commit()
 
     #there should be a separate table to store lastSync or something similar, this will be fixed and also refactored
-    stmt = select(User).where(User.last_modified > 0)
+    stmt = select(User).where(User.last_modified > datetime.fromtimestamp(0))
     result = await db.execute(stmt)
     updated_users = result.scalars().all()
 
@@ -151,8 +151,8 @@ async def auth_sync(request: SyncRequest[AuthSync], db: AsyncSession = Depends(g
                 email=user.email,
                 username=user.username,
                 balance=float(user.balance),
-                created_at=user.created_at.timestamp(),
-                updated_at=user.updated_at.timestamp(),
+                created_at=int(user.created_at.timestamp() * 1000),
+                updated_at=int(user.updated_at.timestamp() * 1000),
                 password_hash=user.password_hash,
                 last_modified=int(user.last_modified.timestamp() * 1000),
                 sync_state=user.sync_state,

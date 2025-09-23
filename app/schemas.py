@@ -44,8 +44,8 @@ class AuthSync(BaseModel):
     email: str
     username: str
     balance: float
-    created_at: datetime
-    updated_at: datetime
+    created_at: int
+    updated_at: int
     password_hash: str
     last_modified: int
     sync_state: int
