@@ -2,7 +2,7 @@ from sqlalchemy.sql import expression
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import User
-from schemas import UserRegister, UserResetPassword
+from schemas import UserRegister, UserResetPassword, AuthSync
 from utils.password_utils import hash_password
 
 async def get_user_by_id(db: AsyncSession, user_id: int):
@@ -40,3 +40,7 @@ async def create_user(db: AsyncSession, user: UserRegister):
     await db.commit()
     await db.refresh(new_user)
     return new_user
+
+# this is not used yet but this will be the main source of function to sync_user
+async def sync_user(db: AsyncSession, user: AuthSync):
+    pass

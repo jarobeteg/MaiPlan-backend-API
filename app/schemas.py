@@ -1,5 +1,8 @@
+from typing import TypeVar, Generic, List
 from pydantic import BaseModel
 from datetime import datetime, date, time
+
+T = TypeVar("T")
 
 class Token(BaseModel):
     access_token: str
@@ -50,6 +53,13 @@ class AuthSync(BaseModel):
 
     class Config:
         from_attributes = True # auto conversion from ORM model to pydantic schema
+
+class SyncRequest(BaseModel, Generic[T]):
+    changes: List[T]
+
+class SyncResponse(BaseModel, Generic[T]):
+    server_changes: List[T]
+    acknowledged: List[T]
 
 class CategoryCreate(BaseModel):
     user_id: int

@@ -1,10 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
-from schemas import UserRegister, UserLogin, UserResponse, UserResetPassword, Token, AuthResponse
-from crud.user_crud import get_user_by_email, get_user_by_username, create_user, reset_user_password
+from schemas import UserRegister, UserLogin, UserResponse, UserResetPassword, Token, AuthResponse, AuthSync, SyncRequest, SyncResponse
+from crud.user_crud import get_user_by_email, get_user_by_username, create_user, reset_user_password, sync_user
 from utils.auth_utils import create_access_token, get_current_user
 from utils.password_utils import verify_password, is_valid_password, do_passwords_match
+from models import User
+from datetime import datetime
+from sqlalchemy.sql import expression
+from sqlalchemy import select
 import re
 
 router = APIRouter()
@@ -95,3 +99,65 @@ async def token_refresh(current_user: UserResponse = Depends(get_current_user)):
 @router.get("/me", response_model=AuthResponse)
 async def get_my_profile(current_user: UserResponse = Depends(get_current_user)):
     return AuthResponse(access_token=get_access_token(current_user.user_id), user=current_user)
+
+@router.post("/sync", response_model=SyncResponse[AuthSync])
+async def auth_sync(request: SyncRequest[AuthSync], db: AsyncSession = Depends(get_db)):
+    server_changes = []
+    acknowledged = []
+
+    for change in request.changes:
+        stmt = select(User).where(expression.column("user_id") == change.server_id)
+        result = await db.execute(stmt)
+        existing = result.scalars().first()
+
+        if existing:
+            # Update existing record
+            existing.email = change.email
+            existing.username = change.username
+            existing.balance = change.balance
+            existing.password_hash = change.password_hash
+            existing.last_modified = datetime.fromtimestamp(change.last_modified / 1000)
+            existing.sync_state = change.sync_state
+            existing.is_deleted = change.is_deleted
+            existing.server_id = change.server_id
+            acknowledged.append(change)
+        else:
+            new_user = User(
+                user_id=change.user_id,
+                email=change.email,
+                username=change.username,
+                balance=change.balance,
+                password_hash=change.password_hash,
+                last_modified=datetime.fromtimestamp(change.last_modified / 1000),
+                sync_state=change.sync_state,
+                is_deleted=change.is_deleted,
+                server_id=change.server_id
+            )
+            db.add(new_user)
+            acknowledged.append(change)
+
+    await db.commit()
+
+    #there should be a separate table to store lastSync or something similar, this will be fixed and also refactored
+    stmt = select(User).where(User.last_modified > 0)
+    result = await db.execute(stmt)
+    updated_users = result.scalars().all()
+
+    for user in updated_users:
+        server_changes.append(
+            AuthSync(
+                user_id=user.user_id,
+                server_id=user.server_id,
+                email=user.email,
+                username=user.username,
+                balance=float(user.balance),
+                created_at=int(user.created_at.timestamp() * 1000),
+                updated_at=int(user.updated_at.timestamp() * 1000),
+                password_hash=user.password_hash,
+                last_modified=int(user.last_modified.timestamp() * 1000),
+                sync_state=user.sync_state,
+                is_deleted=user.is_deleted
+            )
+        )
+
+    return SyncResponse(server_changes=server_changes, acknowledged=acknowledged)
