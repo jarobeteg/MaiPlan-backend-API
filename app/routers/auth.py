@@ -10,6 +10,7 @@ from datetime import datetime
 from sqlalchemy.sql import expression
 from sqlalchemy import select
 import re
+from sqlalchemy.dialects.postgresql import insert
 
 router = APIRouter()
 
@@ -102,62 +103,57 @@ async def get_my_profile(current_user: UserResponse = Depends(get_current_user))
 
 @router.post("/sync", response_model=SyncResponse[AuthSync])
 async def auth_sync(request: SyncRequest[AuthSync], db: AsyncSession = Depends(get_db)):
-    server_changes = []
     acknowledged = []
 
     for change in request.changes:
-        stmt = select(User).where(expression.column("user_id") == change.server_id)
-        result = await db.execute(stmt)
-        existing = result.scalars().first()
-
-        if existing:
-            # Update existing record
-            existing.email = change.email
-            existing.username = change.username
-            existing.balance = change.balance
-            existing.password_hash = change.password_hash
-            existing.last_modified = datetime.utcfromtimestamp(change.last_modified / 1000)
-            existing.sync_state = change.sync_state
-            existing.is_deleted = change.is_deleted
-            existing.server_id = change.server_id
-            acknowledged.append(change)
-        else:
-            new_user = User(
-                user_id=change.user_id if change.user_id else None,
-                email=change.email,
-                username=change.username,
-                balance=change.balance,
-                password_hash=change.password_hash,
-                last_modified=datetime.fromtimestamp(change.last_modified / 1000),
-                sync_state=change.sync_state,
-                is_deleted=change.is_deleted,
-                server_id=change.server_id
-            )
-            db.add(new_user)
-            acknowledged.append(change)
+        stmt = insert(User).values(
+            user_id=change.user_id,
+            email=change.email,
+            username=change.username,
+            balance=change.balance,
+            password_hash=change.password_hash,
+            last_modified=datetime.fromtimestamp(change.last_modified / 1000),
+            sync_state=change.sync_state,
+            is_deleted=change.is_deleted,
+            server_id=change.server_id,
+        ).on_conflict_do_update(
+            index_elements=["user_id"],  # conflict target = primary key
+            set_={
+                "email": change.email,
+                "username": change.username,
+                "balance": change.balance,
+                "password_hash": change.password_hash,
+                "last_modified": datetime.fromtimestamp(change.last_modified / 1000),
+                "sync_state": change.sync_state,
+                "is_deleted": change.is_deleted,
+                "server_id": change.server_id,
+            }
+        )
+        await db.execute(stmt)
+        acknowledged.append(change)
 
     await db.commit()
 
-    #there should be a separate table to store lastSync or something similar, this will be fixed and also refactored
-    stmt = select(User).where(User.last_modified > datetime.fromtimestamp(0))
+    # fetch server changes since last sync
+    stmt = select(User).where(User.last_modified > datetime.fromtimestamp(request.lastSync / 1000))
     result = await db.execute(stmt)
     updated_users = result.scalars().all()
 
-    for user in updated_users:
-        server_changes.append(
-            AuthSync(
-                user_id=user.user_id,
-                server_id=user.server_id,
-                email=user.email,
-                username=user.username,
-                balance=float(user.balance),
-                created_at=int(user.created_at.timestamp() * 1000),
-                updated_at=int(user.updated_at.timestamp() * 1000),
-                password_hash=user.password_hash,
-                last_modified=int(user.last_modified.timestamp() * 1000),
-                sync_state=user.sync_state,
-                is_deleted=user.is_deleted
-            )
+    server_changes = [
+        AuthSync(
+            user_id=user.user_id,
+            server_id=user.server_id,
+            email=user.email,
+            username=user.username,
+            balance=float(user.balance),
+            created_at=int(user.created_at.timestamp() * 1000),
+            updated_at=int(user.updated_at.timestamp() * 1000),
+            password_hash=user.password_hash,
+            last_modified=int(user.last_modified.timestamp() * 1000),
+            sync_state=user.sync_state,
+            is_deleted=user.is_deleted,
         )
+        for user in updated_users
+    ]
 
     return SyncResponse(server_changes=server_changes, acknowledged=acknowledged)
