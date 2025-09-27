@@ -120,7 +120,9 @@ async def auth_sync(request: SyncRequest[AuthSync], db: AsyncSession = Depends(g
         rejected.append(change)
         return SyncResponse(email=request.email, acknowledged=acknowledged, rejected=rejected)
 
-    if change.last_modified <= existing_user.last_modified:
+    existing_last_modified_ms = int(existing_user.last_modified.timestamp() * 1000)
+
+    if change.last_modified <= existing_last_modified_ms:
         match change.sync_state:
             case 1:
                 change.sync_state = 2
