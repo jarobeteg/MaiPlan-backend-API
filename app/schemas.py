@@ -55,11 +55,13 @@ class AuthSync(BaseModel):
         from_attributes = True # auto conversion from ORM model to pydantic schema
 
 class SyncRequest(BaseModel, Generic[T]):
+    email: str
     changes: List[T]
 
 class SyncResponse(BaseModel, Generic[T]):
-    server_changes: List[T]
+    email: str
     acknowledged: List[T]
+    rejected: List[T]
 
 class CategoryCreate(BaseModel):
     user_id: int

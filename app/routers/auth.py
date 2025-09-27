@@ -2,15 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from schemas import UserRegister, UserLogin, UserResponse, UserResetPassword, Token, AuthResponse, AuthSync, SyncRequest, SyncResponse
-from crud.user_crud import get_user_by_email, get_user_by_username, create_user, reset_user_password, sync_user
+from models import User
+from crud.user_crud import get_user_by_email, get_user_by_username, create_user, reset_user_password, get_pending_user, set_sync_state, sync_user
 from utils.auth_utils import create_access_token, get_current_user
 from utils.password_utils import verify_password, is_valid_password, do_passwords_match
-from models import User
-from datetime import datetime
-from sqlalchemy.sql import expression
-from sqlalchemy import select
 import re
-from sqlalchemy.dialects.postgresql import insert
 
 router = APIRouter()
 
@@ -104,56 +100,45 @@ async def get_my_profile(current_user: UserResponse = Depends(get_current_user))
 @router.post("/sync", response_model=SyncResponse[AuthSync])
 async def auth_sync(request: SyncRequest[AuthSync], db: AsyncSession = Depends(get_db)):
     acknowledged = []
+    rejected = []
 
-    for change in request.changes:
-        stmt = insert(User).values(
-            user_id=change.user_id,
-            email=change.email,
-            username=change.username,
-            balance=change.balance,
-            password_hash=change.password_hash,
-            last_modified=datetime.fromtimestamp(change.last_modified / 1000),
-            sync_state=change.sync_state,
-            is_deleted=change.is_deleted,
-            server_id=change.server_id,
-        ).on_conflict_do_update(
-            index_elements=["user_id"],  # conflict target = primary key
-            set_={
-                "email": change.email,
-                "username": change.username,
-                "balance": change.balance,
-                "password_hash": change.password_hash,
-                "last_modified": datetime.fromtimestamp(change.last_modified / 1000),
-                "sync_state": change.sync_state,
-                "is_deleted": change.is_deleted,
-                "server_id": change.server_id,
-            }
-        )
-        await db.execute(stmt)
-        acknowledged.append(change)
+    change = request.changes[0] if len(request.changes) > 0 else None
 
-    await db.commit()
+    if not change:
+        pending_user: User = await get_pending_user(db, request.email)
+        if pending_user:
+            await set_sync_state(db, request.email, sync_state=0)
+            pending_user.sync_state = 0
+            acknowledged.append(pending_user)
 
-    # fetch server changes since last sync
-    stmt = select(User).where(User.last_modified > datetime.fromtimestamp(request.lastSync / 1000))
-    result = await db.execute(stmt)
-    updated_users = result.scalars().all()
+        return SyncResponse(email=request.email, acknowledged=acknowledged, rejected=rejected)
 
-    server_changes = [
-        AuthSync(
-            user_id=user.user_id,
-            server_id=user.server_id,
-            email=user.email,
-            username=user.username,
-            balance=float(user.balance),
-            created_at=int(user.created_at.timestamp() * 1000),
-            updated_at=int(user.updated_at.timestamp() * 1000),
-            password_hash=user.password_hash,
-            last_modified=int(user.last_modified.timestamp() * 1000),
-            sync_state=user.sync_state,
-            is_deleted=user.is_deleted,
-        )
-        for user in updated_users
-    ]
+    existing_user: User = await get_user_by_email(db, request.email)
 
-    return SyncResponse(server_changes=server_changes, acknowledged=acknowledged)
+    if not existing_user:
+        change.is_deleted = 1
+        rejected.append(change)
+        return SyncResponse(email=request.email, acknowledged=acknowledged, rejected=rejected)
+
+    if change.last_modified <= existing_user.last_modified:
+        match change.sync_state:
+            case 1:
+                change.sync_state = 2
+            case 2:
+                change.sync_state = 1
+
+    match change.sync_state:
+         case 1:
+            pass
+         case 2:
+            await set_sync_state(db, request.email, sync_state=0)
+            existing_user.sync_state = 0
+            acknowledged.append(existing_user)
+         case 3:
+            pass
+         case 4:
+             await set_sync_state(db, request.email, sync_state=0)
+             existing_user.sync_state = 0
+             acknowledged.append(existing_user)
+
+    return SyncResponse(email=request.email, acknowledged=acknowledged, rejected=rejected)
