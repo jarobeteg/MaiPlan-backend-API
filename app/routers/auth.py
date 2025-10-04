@@ -109,7 +109,7 @@ async def auth_sync(request: SyncRequest[AuthSync], db: AsyncSession = Depends(g
         if pending_user:
             await set_sync_state(db, request.email, sync_state=0)
             await db.refresh(pending_user)
-            acknowledged.append(to_auth_sync(pending_user, 0))
+            acknowledged.append(to_auth_sync(pending_user))
 
         return SyncResponse(email=request.email, acknowledged=acknowledged, rejected=rejected)
 
@@ -135,19 +135,19 @@ async def auth_sync(request: SyncRequest[AuthSync], db: AsyncSession = Depends(g
          case 2:
             await set_sync_state(db, request.email, sync_state=0)
             await db.refresh(existing_user)
-            acknowledged.append(to_auth_sync(existing_user, change.user_id))
+            acknowledged.append(to_auth_sync(existing_user))
          case 3:
             pass
          case 4:
              await set_sync_state(db, request.email, sync_state=0)
              await db.refresh(existing_user)
-             acknowledged.append(to_auth_sync(existing_user, change.user_id))
+             acknowledged.append(to_auth_sync(existing_user))
 
     return SyncResponse(email=request.email, acknowledged=acknowledged, rejected=rejected)
 
-def to_auth_sync(user: User, user_id: int) -> AuthSync:
+def to_auth_sync(user: User) -> AuthSync:
     return AuthSync(
-        user_id=user_id,
+        user_id=user.user_id,
         server_id=user.server_id,
         email=user.email,
         username=user.username,
