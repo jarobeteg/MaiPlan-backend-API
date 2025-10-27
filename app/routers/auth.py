@@ -131,13 +131,13 @@ async def auth_sync(request: SyncRequest[AuthSync], db: AsyncSession = Depends(g
 
     match change.sync_state:
          case 1:
-            pass
+             pass
          case 2:
-            await set_sync_state(db, request.email, sync_state=0)
-            await db.refresh(existing_user)
-            acknowledged.append(to_auth_sync(existing_user))
+             await set_sync_state(db, request.email, sync_state=0)
+             await db.refresh(existing_user)
+             acknowledged.append(to_auth_sync(existing_user))
          case 3:
-            pass
+             acknowledged.append(to_auth_sync(existing_user))
          case 4:
              await set_sync_state(db, request.email, sync_state=0)
              await db.refresh(existing_user)
