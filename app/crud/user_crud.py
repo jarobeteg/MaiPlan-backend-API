@@ -25,7 +25,7 @@ async def reset_user_password(db: AsyncSession, user: UserResetPassword):
 
     stmt = (update(User)
             .where(expression.column("email") == user.email)
-            .values(password_hash=hashed_password)
+            .values(password_hash=hashed_password, sync_state=4)
             .execution_options(synchronize_session="fetch")
     )
 
