@@ -50,7 +50,7 @@ async def get_pending_user(db: AsyncSession, email: str):
     result = await db.execute(stmt)
     return result.scalars().first()
 
-async def set_sync_state(db: AsyncSession, email: str, sync_state: int):
+async def set_auth_sync_state(db: AsyncSession, email: str, sync_state: int):
     stmt = (
         update(User)
         .where(expression.column("email") == email)
@@ -60,7 +60,3 @@ async def set_sync_state(db: AsyncSession, email: str, sync_state: int):
 
     await db.execute(stmt)
     await db.commit()
-
-# this is not used yet but this will be the main source of function to sync_user
-async def sync_user(db: AsyncSession, user: AuthSync):
-    pass
