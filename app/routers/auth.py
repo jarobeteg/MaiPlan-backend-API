@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
-from schemas import UserRegister, UserLogin, UserResponse, UserResetPassword, Token, AuthResponse, AuthSync, SyncRequest, SyncResponse
+from schemas.auth_schema import UserRegister, UserLogin, UserResponse, UserResetPassword, Token, AuthResponse, AuthSync
+from schemas.sync_schema import SyncRequest, SyncResponse
 from models import User
-from crud.user_crud import get_user_by_email, get_user_by_username, create_user, reset_user_password, get_pending_user, set_sync_state, sync_user
+from crud.user_crud import get_user_by_email, get_user_by_username, create_user, reset_user_password, get_pending_user, set_sync_state
 from utils.auth_utils import create_access_token, get_current_user
 from utils.password_utils import verify_password, is_valid_password, do_passwords_match
 import re

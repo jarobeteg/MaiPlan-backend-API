@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
-from schemas import CategoryCreate, CategoryResponse
+from schemas.category_schema import CategoryCreate, CategoryResponse
 from crud.category_crud import get_categories, add_category, remake_category, remove_category
 from typing import List
 

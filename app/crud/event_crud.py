@@ -2,18 +2,23 @@ from sqlalchemy.sql import expression
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import Event
-from schemas import EventCreate, EventResponse
+from schemas.event_schema import EventCreate, EventResponse
+from datetime import datetime, date, time
 
 async def add_event(db: AsyncSession, event: EventCreate):
+    event_date = datetime.fromtimestamp(event.date / 1000).date()
+    start_time = datetime.fromtimestamp(event.start_time / 1000).time()
+    end_time = datetime.fromtimestamp(event.end_time / 1000).time()
+
     new_event = Event(
             user_id=event.user_id,
             category_id=event.category_id,
             reminder_id=event.reminder_id,
             title=event.title,
             description=event.description,
-            date=event.date,
-            start_time=event.start_time,
-            end_time=event.end_time,
+            date=event_date,
+            start_time=start_time,
+            end_time=end_time,
             priority=event.priority,
             location=event.location
             )

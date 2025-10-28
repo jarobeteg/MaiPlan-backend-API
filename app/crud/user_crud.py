@@ -1,8 +1,8 @@
 from sqlalchemy.sql import expression
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import User
-from schemas import UserRegister, UserResetPassword, AuthSync
+from schemas.auth_schema import UserRegister, UserResetPassword, AuthSync
 from utils.password_utils import hash_password
 
 async def get_user_by_id(db: AsyncSession, user_id: int):

@@ -2,10 +2,13 @@ from sqlalchemy.sql import expression
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import Reminder
-from schemas import ReminderCreate
+from schemas.reminder_schema import ReminderCreate
+from datetime import datetime
 
 async def add_reminder(db: AsyncSession, reminder: ReminderCreate):
-    new_reminder = Reminder(user_id=reminder.user_id, reminder_time=reminder.reminder_time, frequency=reminder.frequency, status=reminder.status, message=reminder.message)
+    reminder_datetime = datetime.fromtimestamp(reminder.reminder_time)
+
+    new_reminder = Reminder(user_id=reminder.user_id, reminder_time=reminder_datetime, frequency=reminder.frequency, status=reminder.status, message=reminder.message)
     db.add(new_reminder)
     await db.flush()    # this populates new_reminder.reminder_id
     await db.commit()
