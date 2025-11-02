@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from schemas.category_schema import CategoryCreate, CategoryResponse, CategorySync
 from schemas.sync_schema import SyncRequest, SyncResponse
-from crud.category_crud import get_categories, add_category, remake_category, remove_category, make_category, get_category, get_pending_categories, set_category_sync_state
+from crud.category_crud import get_categories, add_category, remake_category, remove_category, make_category, get_category, set_category, get_pending_categories, set_category_sync_state
 from models import Category
 from typing import List
 
@@ -62,7 +62,7 @@ async def category_sync(request: SyncRequest[CategorySync], db: AsyncSession = D
         else:
             if category.is_deleted == 0:
                 existing_category = await get_category(db, category.server_id)
-                await set_category_sync_state(db, category.server_id, 0)
+                await set_category(db, category.server_id, category.name, category.description, category.color, category.icon, 0)
                 await db.refresh(existing_category)
                 existing_category_data = CategorySync(
                     category_id=category.category_id,

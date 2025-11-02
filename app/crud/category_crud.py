@@ -1,3 +1,5 @@
+from pydoc import describe
+
 from fastapi import HTTPException
 from sqlalchemy.sql import expression
 from sqlalchemy import select, update
@@ -92,6 +94,31 @@ async def set_category_sync_state(db: AsyncSession, category_id: int, sync_state
         update(Category)
         .where(expression.column("category_id") == category_id)
         .values(sync_state=sync_state)
+        .execution_options(synchronize_session="fetch")
+    )
+
+    await db.execute(stmt)
+    await db.commit()
+
+async def set_category(
+        db: AsyncSession,
+        category_id: int,
+        name: str,
+        description: str,
+        color: str,
+        icon: str,
+        sync_state: int
+):
+    stmt = (
+        update(Category)
+        .where(expression.column("category_id") == category_id)
+        .values(
+            name=name,
+            description=description,
+            color=color,
+            icon=icon,
+            sync_state=sync_state
+        )
         .execution_options(synchronize_session="fetch")
     )
 
