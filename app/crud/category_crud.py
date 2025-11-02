@@ -64,7 +64,7 @@ async def make_category(db: AsyncSession, category: CategorySync):
 async def get_category(db: AsyncSession, category_id: int):
     stmt = select(Category).where(expression.column("category_id") == category_id)
     result = await db.execute(stmt)
-    return result.scalars().first
+    return result.scalars().first()
 
 async def get_pending_categories(db: AsyncSession, user_id: int):
     stmt = select(Category).where(
