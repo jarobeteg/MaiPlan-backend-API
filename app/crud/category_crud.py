@@ -3,6 +3,7 @@ from sqlalchemy.sql import expression
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import Category
+from datetime import datetime
 from schemas.category_schema import CategoryCreate, CategoryResponse, CategorySync
 
 async def add_category(db: AsyncSession, category: CategoryCreate):
@@ -44,13 +45,14 @@ async def remove_category(db: AsyncSession, category_id: int):
     return True
 
 async def make_category(db: AsyncSession, category: CategorySync):
+    created_at = datetime.fromtimestamp(category.created_at / 1000)
     new_category = Category(
         user_id=category.user_id,
         name=category.name,
         description=category.description,
         color=category.color,
         icon=category.icon,
-        created_at=category.created_at
+        created_at=created_at
     )
     db.add(new_category)
     await db.flush()

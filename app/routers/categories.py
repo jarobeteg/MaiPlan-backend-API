@@ -82,8 +82,8 @@ def to_category_sync(category: Category) -> CategorySync:
     description=category.description,
     color=category.color,
     icon=category.icon,
-    created_at=category.created_at,
-    updated_at=category.updated_at,
+    created_at=int(category.created_at.timestamp() * 1000),
+    updated_at=int(category.updated_at.timestamp() * 1000),
     last_modified=int(category.last_modified.timestamp() * 1000),
     sync_state=category.sync_state,
     is_deleted=category.is_deleted
