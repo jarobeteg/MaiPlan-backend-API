@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 
 class CategoryCreate(BaseModel):
     user_id: int
@@ -19,7 +20,7 @@ class CategoryResponse(BaseModel):
 
 class CategorySync(BaseModel):
     category_id: int
-    server_id: int
+    server_id: Optional[int] = None
     user_id: int
     name: str
     description: str
