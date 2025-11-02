@@ -41,7 +41,7 @@ class Reminder(Base):
     __tablename__ = "reminder"
 
     reminder_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     reminder_time = Column(DateTime, nullable=False)
     frequency = Column(Integer, default=0)
     status = Column(Integer, default=1)
@@ -70,7 +70,7 @@ class Note(Base):
     __tablename__ = "note"
 
     note_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     category_id = Column(Integer, ForeignKey("category.category_id", ondelete="SET NULL"))
     reminder_id = Column(Integer, ForeignKey("reminder.reminder_id", ondelete="SET NULL"))
     title = Column(String(255), nullable=False)
@@ -102,7 +102,7 @@ class List(Base):
     __tablename__ = "list"
     
     list_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     title = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
@@ -155,7 +155,7 @@ class HealthReminder(Base):
     __tablename__ = "health_reminder"
 
     reminder_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     type = Column(Integer, nullable=False)
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
@@ -182,7 +182,7 @@ class Finance(Base):
     __tablename__ = "finance"
 
     finance_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     category_id = Column(Integer, ForeignKey("category.category_id", ondelete="SET NULL"))
     reminder_id = Column(Integer, ForeignKey("reminder.reminder_id", ondelete="SET NULL"))
     type = Column(Boolean, nullable=False)
@@ -217,7 +217,7 @@ class Category(Base):
     __tablename__ = "category"
 
     category_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     name = Column(String(255), nullable=False)
     description = Column(Text)
     color = Column(String(32), nullable=False)
@@ -248,7 +248,7 @@ class Event(Base):
     __tablename__ = "event"
 
     event_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("user.user_id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     category_id = Column(Integer, ForeignKey("category.category_id", ondelete="SET NULL"))
     reminder_id = Column(Integer, ForeignKey("reminder.reminder_id", ondelete="SET NULL"))
     title = Column(String(255), nullable=False)
