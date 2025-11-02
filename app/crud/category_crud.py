@@ -57,7 +57,7 @@ async def make_category(db: AsyncSession, category: CategorySync):
     new_category.server_id = new_category.category_id
     await db.commit()
     await db.refresh(new_category)
-    new_category_data = CategorySync.model_validate(new_category)
+    new_category_data = Category.model_validate(new_category)
     new_category_data.category_id = category.category_id
     return new_category_data
 
