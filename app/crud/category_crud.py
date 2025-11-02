@@ -59,8 +59,20 @@ async def make_category(db: AsyncSession, category: CategorySync):
     new_category.server_id = new_category.category_id
     await db.commit()
     await db.refresh(new_category)
-    new_category_data = CategorySync.model_validate(new_category)
-    new_category_data.category_id = category.category_id
+    new_category_data = CategorySync(
+        category_id=category.category_id,
+        server_id=new_category.server_id,
+        user_id=new_category.user_id,
+        name=new_category.name,
+        description=new_category.description,
+        color=new_category.color,
+        icon=new_category.icon,
+        created_at=int(new_category.created_at.timestamp() * 1000),
+        updated_at=int(new_category.updated_at.timestamp() * 1000),
+        last_modified=int(new_category.last_modified.timestamp() * 1000),
+        sync_state=new_category.sync_state,
+        is_deleted=new_category.is_deleted,
+    )
     return new_category_data
 
 async def get_category(db: AsyncSession, category_id: int):

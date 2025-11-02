@@ -64,8 +64,20 @@ async def category_sync(request: SyncRequest[CategorySync], db: AsyncSession = D
                 existing_category = await get_category(db, category.server_id)
                 await set_category_sync_state(db, category.server_id, 0)
                 await db.refresh(existing_category)
-                existing_category_data = CategorySync.model_validate(existing_category)
-                existing_category_data.category_id = category.category_id
+                existing_category_data = CategorySync(
+                    category_id=category.category_id,
+                    server_id=existing_category.server_id,
+                    user_id=existing_category.user_id,
+                    name=existing_category.name,
+                    description=existing_category.description,
+                    color=existing_category.color,
+                    icon=existing_category.icon,
+                    created_at=int(existing_category.created_at.timestamp() * 1000),
+                    updated_at=int(existing_category.updated_at.timestamp() * 1000),
+                    last_modified=int(existing_category.last_modified.timestamp() * 1000),
+                    sync_state=existing_category.sync_state,
+                    is_deleted=existing_category.is_deleted,
+                )
                 acknowledged.append(existing_category_data)
             else:
                 await remove_category(db, category.server_id)
