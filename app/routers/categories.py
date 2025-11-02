@@ -56,7 +56,7 @@ async def category_sync(request: SyncRequest[CategorySync], db: AsyncSession = D
         if category.server_id == 0:
             if category.is_deleted == 0:
                 new_category = await make_category(db, category)
-                acknowledged.append(to_category_sync(new_category))
+                acknowledged.append(new_category)
             else:
                 rejected.append(category)
         else:
@@ -64,9 +64,9 @@ async def category_sync(request: SyncRequest[CategorySync], db: AsyncSession = D
                 existing_category = await get_category(db, category.server_id)
                 await set_category_sync_state(db, category.server_id, 0)
                 await db.refresh(existing_category)
-                existing_category_data = Category.model_validate(existing_category)
+                existing_category_data = CategorySync.model_validate(existing_category)
                 existing_category_data.category_id = category.category_id
-                acknowledged.append(to_category_sync(existing_category_data))
+                acknowledged.append(existing_category_data)
             else:
                 await remove_category(db, category.server_id)
                 rejected.append(category)
