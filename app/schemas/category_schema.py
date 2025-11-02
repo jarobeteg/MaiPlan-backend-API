@@ -25,6 +25,8 @@ class CategorySync(BaseModel):
     description: str
     color: str
     icon: str
+    created_at: int
+    updated_at: int
     last_modified: int
     sync_state: int
     is_deleted: int

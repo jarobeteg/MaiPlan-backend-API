@@ -222,6 +222,8 @@ class Category(Base):
     description = Column(Text)
     color = Column(String(32), nullable=False)
     icon = Column(String(32), nullable=False)
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
     sync_state = Column(Integer, default=0)
     is_deleted = Column(Integer, default=0)
