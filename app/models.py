@@ -6,7 +6,7 @@ from sqlalchemy.sql import func
 Base = declarative_base()
 
 class User(Base):
-    __tablename__ = "user"
+    __tablename__ = "users"
 
     user_id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(String(64), unique=True, nullable=False)
