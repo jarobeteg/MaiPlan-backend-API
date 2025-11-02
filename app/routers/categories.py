@@ -53,7 +53,7 @@ async def category_sync(request: SyncRequest[CategorySync], db: AsyncSession = D
         return SyncResponse(user_id=request.user_id, acknowledged=acknowledged, rejected=rejected)
 
     for category in request.changes:
-        if category.server_id is None:
+        if category.server_id == 0:
             if category.is_deleted == 0:
                 new_category = await make_category(db, category)
                 acknowledged.append(to_category_sync(new_category))
