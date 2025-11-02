@@ -42,18 +42,17 @@ async def create_user(db: AsyncSession, user: UserRegister):
     await db.refresh(new_user)
     return new_user
 
-async def get_pending_user(db: AsyncSession, email: str):
+async def get_pending_user(db: AsyncSession, user_id: int):
     stmt = select(User).where(
-        (expression.column("email") == email) &
-        ((expression.column("sync_state") == 2) | (expression.column("sync_state") == 4))
+        (expression.column("user_id") == user_id) & (expression.column("sync_state") != 0)
     )
     result = await db.execute(stmt)
     return result.scalars().first()
 
-async def set_auth_sync_state(db: AsyncSession, email: str, sync_state: int):
+async def set_auth_sync_state(db: AsyncSession, user_id: int, sync_state: int):
     stmt = (
         update(User)
-        .where(expression.column("email") == email)
+        .where(expression.column("user_id") == user_id)
         .values(sync_state=sync_state)
         .execution_options(synchronize_session="fetch")
     )
