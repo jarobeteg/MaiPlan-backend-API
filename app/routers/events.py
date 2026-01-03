@@ -77,7 +77,6 @@ async def sync_event(request: SyncRequest[EventSync], db: AsyncSession = Depends
 
     return SyncResponse(user_id=request.user_id, acknowledged=acknowledged, rejected=rejected)
 
-
 def to_reminder_sync(event: Event) -> EventSync:
     return EventSync(
         event_id=event.event_id,
