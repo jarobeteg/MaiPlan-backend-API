@@ -34,6 +34,7 @@ async def make_reminder(db: AsyncSession, reminder: ReminderSync):
         frequency=reminder.frequency,
         status=reminder.status,
         message=reminder.message,
+        created_at = created_at
     )
     db.add(new_reminder)
     await db.flush()
