@@ -53,7 +53,7 @@ async def reminder_sync(request: SyncRequest[ReminderSync], db: AsyncSession = D
                 await set_reminder(db, reminder.server_id, reminder.reminder_time, reminder.frequency, reminder.status, reminder.message, 0)
                 await db.refresh(existing_reminder)
                 existing_reminder_data = ReminderSync(
-                    reminder_id=reminder.id,
+                    reminder_id=reminder.reminder_id,
                     server_id=existing_reminder.server_id,
                     user_id=existing_reminder.user_id,
                     reminder_time=int(existing_reminder.time.timestamp() * 1000),
@@ -75,7 +75,7 @@ async def reminder_sync(request: SyncRequest[ReminderSync], db: AsyncSession = D
 
 def to_reminder_sync(reminder: Reminder) -> ReminderSync:
     return ReminderSync(
-        reminder_id=reminder.id,
+        reminder_id=reminder.reminder_id,
         server_id=reminder.server_id,
         user_id=reminder.user_id,
         reminder_time=int(reminder.time.timestamp() * 1000),
