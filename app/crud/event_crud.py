@@ -1,9 +1,10 @@
+from fastapi import HTTPException
 from sqlalchemy.sql import expression
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import Event
-from schemas.event_schema import EventCreate, EventResponse
-from datetime import datetime, date, time
+from schemas.event_schema import EventCreate, EventSync
+from datetime import datetime
 
 async def add_event(db: AsyncSession, event: EventCreate):
     event_date = datetime.fromtimestamp(event.date / 1000).date()
@@ -34,3 +35,115 @@ async def get_events(db: AsyncSession, user_id: int):
     stmt = select(Event).where(expression.column("user_id") == user_id)
     result = await db.execute(stmt)
     return result.scalars().all()
+
+async def make_event(db: AsyncSession, event: EventSync):
+    created_at = datetime.fromtimestamp(event.created_at / 1000)
+    date = datetime.fromtimestamp(event.date / 1000)
+    start_time = datetime.fromtimestamp(event.start_time / 1000)
+    end_time = datetime.fromtimestamp(event.end_time / 1000)
+    new_event = Event(
+        user_id=event.user_id,
+        category_id=event.category_id,
+        reminder_id=event.reminder_id,
+        title=event.title,
+        description=event.description,
+        date=date,
+        start_time=start_time,
+        end_time=end_time,
+        priority=event.priority,
+        location=event.location,
+        created_at=created_at
+    )
+    db.add(new_event)
+    await db.flush()
+    new_event.server_id = new_event.event_id
+    await db.commit()
+    await db.refresh(new_event)
+    new_event_data = EventSync(
+        event_id=event.event_id,
+        server_id=new_event.server_id,
+        user_id=new_event.user_id,
+        category_id=new_event.category_id,
+        reminder_id=new_event.reminder_id,
+        title=new_event.title,
+        description=new_event.description,
+        date=int(new_event.date.timestamp() * 1000),
+        start_time=int(new_event.start_time * 1000),
+        end_time=int(new_event.end_time * 1000),
+        priority=new_event.priority,
+        location=new_event.location,
+        created_at=int(new_event.created_time.timestamp() * 1000),
+        updated_at=int(new_event.updated_time.timestamp() * 1000),
+        last_modified=int(new_event.last_modified.timestamp() * 1000),
+        sync_state=new_event.sync_state,
+        is_deleted=new_event.is_deleted
+    )
+    return new_event_data
+
+async def remove_event(db: AsyncSession, event_id: int):
+    stmt = select(Event).where(expression.column("event_id") == event_id)
+    result = await db.execute(stmt)
+    event = result.scalars().first()
+
+    if not event:
+        raise HTTPException(status_code=404, detail={"code": 3, "message": "Event not found!"})
+
+    await db.delete(event)
+    await db.commit()
+    return True
+
+async def get_pending_events(db: AsyncSession, user_id: int):
+    stmt = select(Event).where(
+        (expression.column("user_id") == user_id) & (expression.column("sync_state") != 0)
+    )
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+async def set_event_sync_state(db: AsyncSession, event_id: int, sync_state: int):
+    stmt = (
+        update(Event)
+        .where(expression.column("event_id") == event_id)
+        .values(sync_state=sync_state)
+        .execution_options(synchronize_session="fetch")
+    )
+
+    await db.execute(stmt)
+    await db.commit()
+
+async def set_event(
+        db: AsyncSession,
+        event_id: int,
+        category_id: int,
+        reminder_id: int,
+        title: str,
+        description: str,
+        date: int,
+        start_time: int,
+        end_time: int,
+        priority: int,
+        location: str,
+        sync_state: int
+):
+    date_converted = datetime.fromtimestamp(date / 1000)
+    start_time_converted = datetime.fromtimestamp(start_time / 1000)
+    end_time_converted = datetime.fromtimestamp(end_time / 1000)
+    stmt = (
+        update(Event)
+        .where(expression.column("event_id") == event_id)
+        .values(
+            category_id=category_id,
+            reminder_id=reminder_id,
+            title=title,
+            description=description,
+            date=date_converted,
+            start_time=start_time_converted,
+            end_time=end_time_converted,
+            priority=priority,
+            location=location,
+            sync_state=sync_state
+        )
+        .execution_options(synchronize_session="fetch")
+    )
+
+    await db.execute(stmt)
+    await db.commit()
