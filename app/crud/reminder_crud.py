@@ -42,7 +42,7 @@ async def make_reminder(db: AsyncSession, reminder: ReminderSync):
     await db.commit()
     await db.refresh(new_reminder)
     new_reminder_data = ReminderSync(
-        reminder_id=new_reminder.reminder_id,
+        reminder_id=reminder.reminder_id,
         server_id=new_reminder.server_id,
         user_id=new_reminder.user_id,
         reminder_time=int(new_reminder.time.timestamp() * 1000),
