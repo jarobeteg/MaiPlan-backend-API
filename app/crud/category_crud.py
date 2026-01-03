@@ -1,5 +1,3 @@
-from pydoc import describe
-
 from fastapi import HTTPException
 from sqlalchemy.sql import expression
 from sqlalchemy import select, update
