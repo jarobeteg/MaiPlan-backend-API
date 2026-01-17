@@ -38,7 +38,7 @@ async def get_events(db: AsyncSession, user_id: int):
 
 async def make_event(db: AsyncSession, event: EventSync):
     created_at = datetime.fromtimestamp(event.created_at / 1000)
-    date = datetime.fromtimestamp(event.date / 1000)
+    date = datetime.fromtimestamp(event.date / 1000).date()
     start_time = datetime.fromtimestamp(event.start_time / 1000)
     end_time = datetime.fromtimestamp(event.end_time / 1000)
     new_event = Event(
