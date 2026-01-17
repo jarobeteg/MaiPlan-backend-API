@@ -72,8 +72,8 @@ async def make_event(db: AsyncSession, event: EventSync):
         end_time=int(datetime.combine(new_event.date, new_event.end_time).timestamp() * 1000),
         priority=new_event.priority,
         location=new_event.location,
-        created_at=int(new_event.created_time.timestamp() * 1000),
-        updated_at=int(new_event.updated_time.timestamp() * 1000),
+        created_at=int(new_event.created_at.timestamp() * 1000),
+        updated_at=int(new_event.updated_at.timestamp() * 1000),
         last_modified=int(new_event.last_modified.timestamp() * 1000),
         sync_state=new_event.sync_state,
         is_deleted=new_event.is_deleted
