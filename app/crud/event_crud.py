@@ -39,8 +39,8 @@ async def get_events(db: AsyncSession, user_id: int):
 async def make_event(db: AsyncSession, event: EventSync):
     created_at = datetime.fromtimestamp(event.created_at / 1000)
     date = datetime.fromtimestamp(event.date / 1000).date()
-    start_time = datetime.fromtimestamp(event.start_time / 1000)
-    end_time = datetime.fromtimestamp(event.end_time / 1000)
+    start_time = datetime.fromtimestamp(event.start_time / 1000).time()
+    end_time = datetime.fromtimestamp(event.end_time / 1000).time()
     new_event = Event(
         user_id=event.user_id,
         category_id=event.category_id,
@@ -68,8 +68,8 @@ async def make_event(db: AsyncSession, event: EventSync):
         title=new_event.title,
         description=new_event.description,
         date=int(datetime.combine(new_event.date, time.min).timestamp() * 1000),
-        start_time=int(new_event.start_time.timestamp() * 1000),
-        end_time=int(new_event.end_time.timestamp() * 1000),
+        start_time=int(datetime.combine(new_event.date, new_event.start_time).timestamp() * 1000),
+        end_time=int(datetime.combine(new_event.date, new_event.end_time).timestamp() * 1000),
         priority=new_event.priority,
         location=new_event.location,
         created_at=int(new_event.created_time.timestamp() * 1000),
@@ -125,8 +125,8 @@ async def set_event(
         sync_state: int
 ):
     date_converted = datetime.fromtimestamp(date / 1000).date()
-    start_time_converted = datetime.fromtimestamp(start_time / 1000)
-    end_time_converted = datetime.fromtimestamp(end_time / 1000)
+    start_time_converted = datetime.fromtimestamp(start_time / 1000).time()
+    end_time_converted = datetime.fromtimestamp(end_time / 1000).time()
     stmt = (
         update(Event)
         .where(expression.column("event_id") == event_id)
