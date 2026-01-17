@@ -93,6 +93,7 @@ def to_reminder_sync(event: Event) -> EventSync:
         location=event.location,
         created_at=int(event.created_time.timestamp() * 1000),
         updated_at=int(event.updated_time.timestamp() * 1000),
+        last_modified=int(event.last_modified.timestamp() * 1000),
         sync_state=event.sync_state,
         is_deleted=event.is_deleted
     )
