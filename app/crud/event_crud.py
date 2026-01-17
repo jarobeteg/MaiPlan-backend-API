@@ -4,7 +4,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import Event
 from schemas.event_schema import EventCreate, EventSync
-from datetime import datetime
+from datetime import datetime, time
 
 async def add_event(db: AsyncSession, event: EventCreate):
     event_date = datetime.fromtimestamp(event.date / 1000).date()
@@ -67,7 +67,7 @@ async def make_event(db: AsyncSession, event: EventSync):
         reminder_id=new_event.reminder_id,
         title=new_event.title,
         description=new_event.description,
-        date=int(new_event.date.timestamp() * 1000),
+        date=int(datetime.combine(new_event.date, time.min).timestamp() * 1000),
         start_time=int(new_event.start_time * 1000),
         end_time=int(new_event.end_time * 1000),
         priority=new_event.priority,
@@ -124,7 +124,7 @@ async def set_event(
         location: str,
         sync_state: int
 ):
-    date_converted = datetime.fromtimestamp(date / 1000)
+    date_converted = datetime.fromtimestamp(date / 1000).date()
     start_time_converted = datetime.fromtimestamp(start_time / 1000)
     end_time_converted = datetime.fromtimestamp(end_time / 1000)
     stmt = (

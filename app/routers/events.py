@@ -7,6 +7,7 @@ from schemas.event_schema import EventCreate, EventResponse, EventSync
 from crud.event_crud import add_event, get_event, get_events, get_pending_events, set_event, set_event_sync_state, \
     make_event, remove_event
 from typing import List
+from datetime import datetime, time
 
 router = APIRouter()
 
@@ -59,7 +60,7 @@ async def sync_event(request: SyncRequest[EventSync], db: AsyncSession = Depends
                     reminder_id=existing_event.reminder_id,
                     title=existing_event.title,
                     description=existing_event.description,
-                    date=int(existing_event.date.timestamp() * 1000),
+                    date=int(datetime.combine(existing_event.date, time.min).timestamp() * 1000),
                     start_time=int(existing_event.start_time * 1000),
                     end_time=int(existing_event.end_time * 1000),
                     priority=existing_event.priority,
@@ -86,7 +87,7 @@ def to_reminder_sync(event: Event) -> EventSync:
         reminder_id=event.reminder_id,
         title=event.title,
         description=event.description,
-        date=int(event.date.timestamp() * 1000),
+        date=int(datetime.combine(event.date, time.min).timestamp() * 1000),
         start_time=int(event.start_time * 1000),
         end_time=int(event.end_time * 1000),
         priority=event.priority,
