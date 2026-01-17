@@ -45,7 +45,7 @@ async def make_reminder(db: AsyncSession, reminder: ReminderSync):
         reminder_id=reminder.reminder_id,
         server_id=new_reminder.server_id,
         user_id=new_reminder.user_id,
-        reminder_time=int(new_reminder.time.timestamp() * 1000),
+        reminder_time=int(new_reminder.reminder_time.timestamp() * 1000),
         frequency=new_reminder.frequency,
         status=new_reminder.status,
         message=new_reminder.message,
