@@ -44,7 +44,7 @@ async def make_event(db: AsyncSession, event: EventSync):
     new_event = Event(
         user_id=event.user_id,
         category_id=event.category_id,
-        reminder_id=event.reminder_id,
+        reminder_id=event.reminder_id == 0 if event.reminder_id else None,
         title=event.title,
         description=event.description,
         date=date_value,
