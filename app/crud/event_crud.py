@@ -44,7 +44,7 @@ async def make_event(db: AsyncSession, event: EventSync):
     new_event = Event(
         user_id=event.user_id,
         category_id=event.category_id,
-        reminder_id=event.reminder_id == 0 if event.reminder_id else None,
+        reminder_id=None if event.reminder_id == 0 else event.reminder_id,
         title=event.title,
         description=event.description,
         date=date_value,
@@ -64,7 +64,7 @@ async def make_event(db: AsyncSession, event: EventSync):
         server_id=new_event.server_id,
         user_id=new_event.user_id,
         category_id=new_event.category_id,
-        reminder_id=new_event.reminder_id,
+        reminder_id=0 if new_event.reminder_id is None else new_event.reminder_id,
         title=new_event.title,
         description=new_event.description,
         date=int(datetime.combine(new_event.date, time.min).timestamp() * 1000),
@@ -117,14 +117,14 @@ async def set_event(
         reminder_id: int,
         title: str,
         description: str,
-        date: int,
+        date_event: int,
         start_time: int,
         end_time: int,
         priority: int,
         location: str,
         sync_state: int
 ):
-    date_converted = datetime.fromtimestamp(date / 1000).date()
+    date_converted = datetime.fromtimestamp(date_event / 1000).date()
     start_time_converted = datetime.fromtimestamp(start_time / 1000).time()
     end_time_converted = datetime.fromtimestamp(end_time / 1000).time()
     stmt = (
