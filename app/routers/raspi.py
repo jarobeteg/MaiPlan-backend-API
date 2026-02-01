@@ -19,6 +19,7 @@ async def health_check():
 
     return JSONResponse(
             content={
+                "server" : "development",
                 "status": "healthy",
                 "uptime": uptime_formatted,
                 "hostname": hostname,
