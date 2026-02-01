@@ -11,7 +11,7 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password, hashed_password) -> bool:
     plain_password_bytes = plain_password.encode('utf-8')
     hashed_password_bytes = hashed_password.encode('utf-8')
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(plain_password_bytes, hashed_password_bytes)
 
 def is_valid_password(password: str) -> bool:
     if len(password) < 8:
