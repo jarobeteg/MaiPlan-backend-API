@@ -4,7 +4,8 @@ from typing import AsyncGenerator
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
+env = os.environ["ENV"]
+load_dotenv(f".env.{env}")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # creates async SQLAlchemy engine

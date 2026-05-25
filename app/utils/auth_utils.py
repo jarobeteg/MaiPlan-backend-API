@@ -9,11 +9,11 @@ from database import get_db
 from crud.user_crud import get_user_by_id
 from dotenv import load_dotenv
 
-load_dotenv()
-
+env = os.environ["ENV"]
+load_dotenv(f".env.{env}")
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRY = 7 # days
+ACCESS_TOKEN_EXPIRY = int(os.getenv("ACCESS_TOKEN_EXPIRY")) # days
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
