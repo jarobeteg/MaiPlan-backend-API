@@ -7,6 +7,8 @@ import os
 
 env = os.environ["ENV"]
 env_file = Path(f".env.{env}")
+print("Trying to load:", env_file.resolve())
+print("Exists:", env_file.exists())
 load_dotenv(env_file)
 DATABASE_URL = os.getenv("DATABASE_URL")
 
