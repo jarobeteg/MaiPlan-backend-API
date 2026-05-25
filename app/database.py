@@ -1,11 +1,13 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
+from pathlib import Path
 from typing import AsyncGenerator
 from dotenv import load_dotenv
 import os
 
 env = os.environ["ENV"]
-load_dotenv(f".env.{env}")
+env_file = Path(f".env.{env}")
+load_dotenv(env_file)
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # creates async SQLAlchemy engine

@@ -5,12 +5,14 @@ from jwt import ExpiredSignatureError, InvalidTokenError
 from fastapi import HTTPException, Depends, Security
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
+from pathlib import Path
 from database import get_db
 from crud.user_crud import get_user_by_id
 from dotenv import load_dotenv
 
 env = os.environ["ENV"]
-load_dotenv(f".env.{env}")
+env_file = Path(f".env.{env}")
+load_dotenv(env_file)
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRY = int(os.getenv("ACCESS_TOKEN_EXPIRY")) # days
