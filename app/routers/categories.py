@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from database import get_db
+from core.database import get_db
 from schemas.category_schema import CategoryCreate, CategoryResponse, CategorySync
 from schemas.sync_schema import SyncRequest, SyncResponse
 from crud.category_crud import get_categories, add_category, remake_category, remove_category, make_category, get_category, set_category, get_pending_categories, set_category_sync_state
-from models import Category
+from core.models import Category
 from typing import List
 
 router = APIRouter()

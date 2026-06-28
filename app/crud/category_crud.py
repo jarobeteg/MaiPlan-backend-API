@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy.sql import expression
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from models import Category
+from core.models import Category
 from datetime import datetime
 from schemas.category_schema import CategoryCreate, CategoryResponse, CategorySync
 

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from database import get_db
-from models import Event
+from core.database import get_db
+from core.models import Event
 from schemas.sync_schema import SyncRequest, SyncResponse
 from schemas.event_schema import EventCreate, EventResponse, EventSync
 from crud.event_crud import add_event, get_event, get_events, get_pending_events, set_event, set_event_sync_state, \

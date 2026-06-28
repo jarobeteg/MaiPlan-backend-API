@@ -1,7 +1,12 @@
-from sqlalchemy import Column, Integer, Numeric, String, Text, DateTime, Date, Time, Boolean, ForeignKey, Index, CheckConstraint, UniqueConstraint, text
+from sqlalchemy import (Column, Integer, Numeric, String, Text, DateTime, Date,
+                        Time, Boolean, ForeignKey, Index, CheckConstraint,
+                        UniqueConstraint, text, Enum)
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import relationship, Mapped, mapped_column, DeclarativeBase
 from sqlalchemy.sql import func
+from core.enums import SyncAction, SyncResult, EntityType
+from datetime import datetime
 
 Base = declarative_base()
 
@@ -68,21 +73,79 @@ class Reminder(Base):
     event = relationship("Event", back_populates="reminder")
     note = relationship("Note", back_populates="reminder")
 
-class Note(Base):
+class Note(DeclarativeBase):
     __tablename__ = "note"
 
-    note_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-    category_id = Column(Integer, ForeignKey("category.category_id", ondelete="SET NULL"))
-    reminder_id = Column(Integer, ForeignKey("reminder.reminder_id", ondelete="SET NULL"))
-    title = Column(String(255), nullable=False)
-    content = Column(Text)
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
-    sync_state = Column(Integer, default=0)
-    is_deleted = Column(Integer, default=0)
-    server_id = Column(Integer, nullable=True)
+    note_id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    category_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("category.category_id", ondelete="SET NULL"),
+        nullable=True
+    )
+
+    reminder_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("reminder.reminder_id", ondelete="SET NULL"),
+        nullable=True
+    )
+
+    title: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False
+    )
+
+    content: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        server_default=func.now()
+    )
+
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+    last_modified: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+    sync_state: Mapped[int] = mapped_column(
+        Integer,
+        default=0
+    )
+
+    is_deleted: Mapped[int] = mapped_column(
+        Integer,
+        default=0
+    )
+
+    server_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True
+    )
+
+    is_pinned: Mapped[int] = mapped_column(
+        Integer,
+        default=0
+    )
 
     # indexes and other constraints
     __table_args__ = (
@@ -284,3 +347,26 @@ class Event(Base):
     user = relationship("User", back_populates="events")
     reminder = relationship("Reminder", back_populates="event")
     category = relationship("Category", back_populates="event")
+
+class SyncLog(Base):
+    __tablename__ = "sync_log"
+
+    sync_log_id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    entity_type = Column(Enum(EntityType))
+    entity_id = Column(Integer)
+    old_data = Column(JSONB, nullable=True)
+    new_data = Column(JSONB, nullable=True)
+    action = Column(Enum(SyncAction))
+    result = Column(Enum(SyncResult))
+    exception_type = Column(String(32), nullable=True)
+    exception_message = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=func.now())
+
+    # indexes and other constraints
+    __table_args__ = (
+        Index("idx_sync_log_user_id", "user_id"),
+        Index("idx_sync_log_timestamp", "timestamp"),
+        Index("idx_sync_log_result", "result"),
+        Index("idx_sync_log_entity", "entity_type", "entity_id")
+    )

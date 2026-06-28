@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from database import engine
+from core.database import engine
 from routers import raspi, auth, categories, reminders, events
 
 @asynccontextmanager

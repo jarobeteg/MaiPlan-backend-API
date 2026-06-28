@@ -6,7 +6,7 @@ from fastapi import HTTPException, Depends, Security
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from pathlib import Path
-from database import get_db
+from core.database import get_db
 from crud.user_crud import get_user_by_id
 from dotenv import load_dotenv
 

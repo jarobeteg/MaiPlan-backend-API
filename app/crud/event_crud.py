@@ -2,9 +2,10 @@ from fastapi import HTTPException
 from sqlalchemy.sql import expression
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from models import Event
+from core.models import Event
 from schemas.event_schema import EventCreate, EventSync
-from datetime import datetime, time, date, timedelta
+from datetime import datetime, time
+
 
 async def add_event(db: AsyncSession, event: EventCreate):
     event_date = datetime.fromtimestamp(event.date / 1000).date()

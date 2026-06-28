@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from database import get_db
-from models import Reminder
+from core.database import get_db
+from core.models import Reminder
 from schemas.reminder_schema import ReminderCreate, ReminderResponse, ReminderSync
-from schemas.sync_schema import SyncRequest, SyncResponse
+from schemas.sync_schema import SyncResponse
 from crud.reminder_crud import add_reminder, get_reminder, get_reminders, get_pending_reminders, \
     set_reminder_sync_state, make_reminder, remove_reminder, set_reminder
 from typing import List

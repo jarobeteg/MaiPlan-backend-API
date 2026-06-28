@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy.sql import expression
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from models import Reminder
+from core.models import Reminder
 from schemas.reminder_schema import ReminderCreate, ReminderSync
 from datetime import datetime
 
