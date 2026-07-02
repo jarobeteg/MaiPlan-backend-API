@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import os
 
 env = os.environ["ENV"]
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parents[2]
 env_file = BASE_DIR / f".env.{env}"
 load_dotenv(env_file)
 DATABASE_URL = os.getenv("DATABASE_URL")

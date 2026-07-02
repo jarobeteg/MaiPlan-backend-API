@@ -11,7 +11,7 @@ from crud.user_crud import get_user_by_id
 from dotenv import load_dotenv
 
 env = os.environ["ENV"]
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parents[2]
 env_file = BASE_DIR / f".env.{env}"
 load_dotenv(env_file)
 SECRET_KEY = os.getenv("SECRET_KEY")
