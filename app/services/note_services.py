@@ -28,8 +28,25 @@ async def note_sync_service(db: AsyncSession, request: SyncRequest[NoteSync]) ->
 
         return SyncResponse(user_id=request.user_id, acknowledged=acknowledged, rejected=rejected)
 
-    for note_sync in request.notes:
+    for note_sync in request.changes:
         try:
+            if note_sync.user_id != request.user_id:
+                rejected.append(note_sync)
+
+                await log_note_sync(
+                    db=db,
+                    user_id=request.user_id,
+                    entity_id=note_sync.server_id if note_sync.server_id != 0 else None,
+                    old_data=note_sync.model_dump(),
+                    new_data=None,
+                    action=SyncAction.SYNC_UPLOAD,
+                    result=SyncResult.FAILED,
+                    exception_type="UserMismatch",
+                    exception_message="Note user_id does not match sync request user_id.",
+                )
+
+                continue
+
             # note was created locally and needs to be created on the server
             if note_sync.server_id == 0 and note_sync.is_deleted == 0:
                 new_note = to_note(note_sync)
@@ -89,7 +106,7 @@ async def note_sync_service(db: AsyncSession, request: SyncRequest[NoteSync]) ->
                     note_id=note_sync.server_id,
                 )
 
-                if context.success or existing_note is None:
+                if not context.success or existing_note is None:
                     rejected.append(note_sync)
 
                     await log_note_sync(
@@ -102,6 +119,23 @@ async def note_sync_service(db: AsyncSession, request: SyncRequest[NoteSync]) ->
                         result=SyncResult.FAILED,
                         exception_type=context.exception_type,
                         exception_message=context.exception_message or "Note DB record not found.",
+                    )
+
+                    continue
+
+                if existing_note.user_id != request.user_id:
+                    rejected.append(note_sync)
+
+                    await log_note_sync(
+                        db=db,
+                        user_id=request.user_id,
+                        entity_id=note_sync.server_id,
+                        old_data=note_snapshot(existing_note),
+                        new_data=note_sync.model_dump(),
+                        action=SyncAction.SYNC_UPLOAD,
+                        result=SyncResult.FAILED,
+                        exception_type="UserMismatch",
+                        exception_message="Note DB record does not belong to sync request user_id.",
                     )
 
                     continue
@@ -166,6 +200,23 @@ async def note_sync_service(db: AsyncSession, request: SyncRequest[NoteSync]) ->
                         result=SyncResult.FAILED,
                         exception_type=context.exception_type,
                         exception_message=context.exception_message or "Note DB record not found.",
+                    )
+
+                    continue
+
+                if existing_note.user_id != request.user_id:
+                    rejected.append(note_sync)
+
+                    await log_note_sync(
+                        db=db,
+                        user_id=request.user_id,
+                        entity_id=note_sync.server_id,
+                        old_data=note_snapshot(existing_note),
+                        new_data=None,
+                        action=SyncAction.SYNC_UPLOAD,
+                        result=SyncResult.FAILED,
+                        exception_type="UserMismatch",
+                        exception_message="Note DB record does not belong to sync request user_id.",
                     )
 
                     continue

@@ -1,14 +1,14 @@
 from sqlalchemy import (Column, Integer, Numeric, String, Text, DateTime, Date,
                         Time, Boolean, ForeignKey, Index, CheckConstraint,
                         UniqueConstraint, text, Enum)
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import relationship, Mapped, mapped_column, DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, relationship, Mapped, mapped_column
 from sqlalchemy.sql import func
 from core.enums import SyncAction, SyncResult, EntityType
 from datetime import datetime
 
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
 
 class User(Base):
     __tablename__ = "users"
@@ -73,7 +73,7 @@ class Reminder(Base):
     event = relationship("Event", back_populates="reminder")
     note = relationship("Note", back_populates="reminder")
 
-class Note(DeclarativeBase):
+class Note(Base):
     __tablename__ = "note"
 
     note_id: Mapped[int] = mapped_column(

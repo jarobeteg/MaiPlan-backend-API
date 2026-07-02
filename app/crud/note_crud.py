@@ -9,6 +9,9 @@ from utils.db_utils import DBOperationContext
 async def create_note(db: AsyncSession, note: Note) -> tuple[Note | None, DBOperationContext]:
     try:
         db.add(note)
+        await db.flush()
+        note.server_id = note.note_id
+        note.sync_state = 0
         await db.commit()
         await db.refresh(note)
 
@@ -93,9 +96,10 @@ async def update_note(db: AsyncSession, note_id: int, note_data: NoteSync) -> tu
 
         note.title = note_data.title
         note.content = note_data.content
-        note.category_id = note_data.category_id
-        note.reminder_id = note_data.reminder_id
+        note.category_id = None if note_data.category_id == 0 else note_data.category_id
+        note.reminder_id = None if note_data.reminder_id == 0 else note_data.reminder_id
         note.is_deleted = note_data.is_deleted
+        note.is_pinned = note_data.is_pinned
         note.sync_state = 0
 
         await db.commit()
