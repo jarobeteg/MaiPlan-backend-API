@@ -351,17 +351,63 @@ class Event(Base):
 class SyncLog(Base):
     __tablename__ = "sync_log"
 
-    sync_log_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-    entity_type = Column(Enum(EntityType))
-    entity_id = Column(Integer)
-    old_data = Column(JSONB, nullable=True)
-    new_data = Column(JSONB, nullable=True)
-    action = Column(Enum(SyncAction))
-    result = Column(Enum(SyncResult))
-    exception_type = Column(String(32), nullable=True)
-    exception_message = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=func.now())
+    sync_log_id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    entity_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    entity_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
+    old_data: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
+    new_data: Mapped[dict | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+
+    action: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    result: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    exception_type: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+
+    exception_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime,
+        server_default=func.now(),
+        nullable=False,
+    )
 
     # indexes and other constraints
     __table_args__ = (
