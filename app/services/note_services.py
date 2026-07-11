@@ -71,6 +71,7 @@ async def note_sync_service(db: AsyncSession, request: SyncRequest[NoteSync]) ->
                     continue
 
                 acknowledged_note = to_note_sync(created_note)
+                acknowledged_note.note_id = note_sync.note_id
                 acknowledged.append(acknowledged_note)
 
                 await log_note_sync(

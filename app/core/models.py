@@ -4,7 +4,6 @@ from sqlalchemy import (Column, Integer, Numeric, String, Text, DateTime, Date,
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, relationship, Mapped, mapped_column
 from sqlalchemy.sql import func
-from core.enums import SyncAction, SyncResult, EntityType
 from datetime import datetime
 
 class Base(DeclarativeBase):
