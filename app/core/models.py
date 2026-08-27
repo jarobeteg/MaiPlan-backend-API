@@ -1,10 +1,24 @@
-from sqlalchemy import (Column, Integer, Numeric, String, Text, DateTime, Date,
-                        Time, Boolean, ForeignKey, Index, CheckConstraint,
-                        UniqueConstraint, text, Enum)
+from datetime import date, datetime
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    Time,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import DeclarativeBase, relationship, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
-from datetime import datetime
+
 
 class Base(DeclarativeBase):
     pass
@@ -35,6 +49,7 @@ class User(Base):
     # relationships to other tables, constraints
     reminders = relationship("Reminder", cascade="all, delete-orphan", back_populates="user")
     notes = relationship("Note", cascade="all, delete-orphan", back_populates="user")
+    tasks = relationship("Task", cascade="all, delete-orphan", back_populates="user")
     lists = relationship("List", cascade="all, delete-orphan", back_populates="user")
     health_reminders = relationship("HealthReminder", cascade="all, delete-orphan", back_populates="user")
     finances = relationship("Finance", cascade="all, delete-orphan", back_populates="user")
@@ -71,6 +86,7 @@ class Reminder(Base):
     finance = relationship("Finance", back_populates="reminder")
     event = relationship("Event", back_populates="reminder")
     note = relationship("Note", back_populates="reminder")
+    task = relationship("Task", back_populates="reminder")
 
 class Note(Base):
     __tablename__ = "note"
@@ -162,6 +178,224 @@ class Note(Base):
     category = relationship("Category", back_populates="note")
     reminder = relationship("Reminder", back_populates="note")
 
+class Task(Base):
+    __tablename__ = "task"
+
+    task_id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    category_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("category.category_id", ondelete="SET NULL"),
+        nullable=True
+    )
+
+    reminder_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("reminder.reminder_id", ondelete="SET NULL"),
+        nullable=True
+    )
+
+    title: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False
+    )
+
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True
+    )
+
+    status: Mapped[int] = mapped_column(
+        Integer,
+        default=0
+    )
+
+    scheduled_date: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True
+    )
+
+    estimated_time: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True
+    )
+
+    completed_date: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True
+    )
+
+    series_id: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True
+    )
+
+    occurrence_number: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True
+    )
+
+    repeat_unit: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True
+    )
+
+    repeat_interval: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True
+    )
+
+    repeat_weekdays: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True
+    )
+
+    repeat_end_date: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True
+    )
+
+    repeat_anchor_date: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        server_default=func.now()
+    )
+
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+    last_modified: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+    sync_state: Mapped[int] = mapped_column(
+        Integer,
+        default=0
+    )
+
+    is_deleted: Mapped[int] = mapped_column(
+        Integer,
+        default=0
+    )
+
+    server_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True
+    )
+
+    # indexes and other constraints
+    __table_args__ = (
+        Index("idx_task_user", "user_id"),
+        Index("idx_task_category", "category_id"),
+        Index("idx_task_reminder", "reminder_id"),
+        Index("idx_task_sync_state", "sync_state"),
+        Index("idx_task_server_id", "server_id"),
+        Index("idx_task_series_occurrence", "series_id", "occurrence_number"),
+        Index("idx_task_active", "task_id", postgresql_where=text("is_deleted = 0"))
+    )
+
+    # relationships to other tables, constraints
+    subtasks = relationship("SubTask", cascade="all, delete-orphan", back_populates="task")
+    user = relationship("User", back_populates="tasks")
+    category = relationship("Category", back_populates="task")
+    reminder = relationship("Reminder", back_populates="task")
+
+class SubTask(Base):
+    __tablename__ = "subtask"
+
+    subtask_id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True
+    )
+
+    task_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("task.task_id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    title: Mapped[str] = mapped_column(
+        Text,
+        nullable=False
+    )
+
+    status: Mapped[int] = mapped_column(
+        Integer,
+        default=0
+    )
+
+    sort_order: Mapped[int] = mapped_column(
+        Integer
+    )
+
+    completed_date: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        server_default=func.now()
+    )
+
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+    last_modified: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+    sync_state: Mapped[int] = mapped_column(
+        Integer,
+        default=0
+    )
+
+    is_deleted: Mapped[int] = mapped_column(
+        Integer,
+        default=0
+    )
+
+    server_id: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True
+    )
+
+    # indexes and other constraints
+    __table_args__ = (
+        Index("idx_subtask_task_id", "task_id"),
+        Index("idx_subtask_sync_state", "sync_state"),
+        Index("idx_subtask_server_id", "server_id"),
+        Index("idx_subtask_active", "task_id", postgresql_where=text("is_deleted = 0"))
+    )
+
+    # relationships to other tables, constraints
+    task = relationship("Task", back_populates="subtasks")
+
 class List(Base):
     __tablename__ = "list"
     
@@ -214,33 +448,6 @@ class ListItem(Base):
 
     # relationships to other tables, constraints
     list = relationship("List", back_populates="list_items")
-
-class HealthReminder(Base):
-    __tablename__ = "health_reminder"
-
-    reminder_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-    type = Column(Integer, nullable=False)
-    start_time = Column(Time, nullable=False)
-    end_time = Column(Time, nullable=False)
-    frequency = Column(Integer, nullable=False)
-    last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
-    sync_state = Column(Integer, default=0)
-    is_deleted = Column(Integer, default=0)
-    server_id = Column(Integer, nullable=True)
-
-    # indexes and other constraints
-    __table_args__ = (
-        CheckConstraint("type = ANY (ARRAY[1, 2, 3])", name="ck_type"),
-        Index("idx_health_reminder_user", "user_id"),
-        Index("idx_reminder_last_modified", "last_modified"),
-        Index("idx_reminder_sync_state", "sync_state"),
-        Index("idx_reminder_server_id", "server_id"),
-        Index("idx_reminder_active", "reminder_id", postgresql_where=text("is_deleted = 0"))
-    )
-
-    # relationships to other tables, constraints
-    user = relationship("User", back_populates="health_reminders")
 
 class Finance(Base):
     __tablename__ = "finance"
@@ -305,6 +512,7 @@ class Category(Base):
     # relationships to other tables, constraints
     user = relationship("User", back_populates="categories")
     note = relationship("Note", back_populates="category")
+    task = relationship("Task", back_populates="category")
     event = relationship("Event", back_populates="category")
     finance = relationship("Finance", back_populates="category")
 
