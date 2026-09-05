@@ -1,10 +1,11 @@
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
 from core.enums import SyncResult
 from core.models import Note
 from schemas.note_schema import NoteSync
+from sqlalchemy import select, update
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 from utils.db_utils import DBOperationContext
+
 
 async def create_note(db: AsyncSession, note: Note) -> tuple[Note | None, DBOperationContext]:
     try:
@@ -85,7 +86,7 @@ async def get_pending_notes(db: AsyncSession, user_id: int) -> tuple[list[Note],
 
 async def update_note(db: AsyncSession, note_id: int, note_data: NoteSync) -> tuple[Note | None, DBOperationContext]:
     try:
-        note, context = await get_note(db, note_id)
+        note, _context = await get_note(db, note_id)
 
         if note is None:
             return None, DBOperationContext(
@@ -118,7 +119,7 @@ async def update_note(db: AsyncSession, note_id: int, note_data: NoteSync) -> tu
 
 async def delete_note(db: AsyncSession, note_id: int) -> DBOperationContext:
     try:
-        note, context = await get_note(db, note_id)
+        note, _context = await get_note(db, note_id)
 
         if note is None:
             return DBOperationContext(

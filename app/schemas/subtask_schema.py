@@ -1,20 +1,20 @@
 from pydantic import BaseModel
 
 
-class NoteSync(BaseModel):
-    note_id: int
+class SubtaskSync(BaseModel):
+    subtask_id: int
     server_id: int
-    user_id: int
-    category_id: int
-    reminder_id: int
+    task_id: int
     title: str
-    content: str
+    status: int
+    sort_order: int
+    estimated_time: int
+    completed_date: int
     created_at: int
     updated_at: int
     last_modified: int
     sync_state: int
     is_deleted: int
-    is_pinned: int
 
     class Config:
         from_attributes = True # auto conversion from ORM model to pydantic schema

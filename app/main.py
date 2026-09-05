@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+
 from core.database import engine
-from routers import raspi, auth, categories, reminders, events, notes
+from fastapi import FastAPI
+from routers import auth, categories, events, notes, raspi, reminders, subtasks, tasks
+
 
 @asynccontextmanager
 async def lifespan(api: FastAPI):
@@ -19,3 +21,5 @@ app.include_router(categories.router, prefix="/categories", tags=["Categories"])
 app.include_router(reminders.router, prefix="/reminders", tags=["Reminders"])
 app.include_router(events.router, prefix="/events", tags=["Events"])
 app.include_router(notes.router, prefix="/notes", tags=["Notes"])
+app.include_router(tasks.router, prefix="/tasks", tags=["Tasks"])
+app.include_router(subtasks.router, prefix="/subtasks", tags=["Subtasks"])

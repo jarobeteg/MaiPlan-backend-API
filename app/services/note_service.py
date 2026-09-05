@@ -1,11 +1,19 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from core.enums import EntityType, SyncResult, SyncAction
+from core.enums import EntityType, SyncAction, SyncResult
 from core.models import Note
-from crud.note_crud import get_pending_notes, set_note_sync_state, create_note, get_note, delete_note, update_note
+from crud.note_crud import (
+    create_note,
+    delete_note,
+    get_note,
+    get_pending_notes,
+    set_note_sync_state,
+    update_note,
+)
 from crud.sync_log_crud import create_sync_log
 from schemas.note_schema import NoteSync
 from schemas.sync_schema import SyncRequest, SyncResponse
-from utils.model_converters import to_note_sync, to_note
+from sqlalchemy.ext.asyncio import AsyncSession
+from utils.model_converters import to_note, to_note_sync
+
 
 def note_snapshot(note: Note) -> dict:
     return to_note_sync(note).model_dump()

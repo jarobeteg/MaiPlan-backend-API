@@ -1,5 +1,9 @@
 import enum
 
+
+class SyncValue(int, enum.Enum):
+    SYNCED = 0
+
 class SyncAction(str, enum.Enum):
     CREATE = "CREATE"
     UPDATE = "UPDATE"

@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import (
     Boolean,
@@ -8,6 +8,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Interval,
     Numeric,
     String,
     Text,
@@ -130,13 +131,13 @@ class Note(Base):
         server_default=func.now()
     )
 
-    updated_at: Mapped[datetime | None] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now(),
         onupdate=func.now()
     )
 
-    last_modified: Mapped[datetime | None] = mapped_column(
+    last_modified: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now(),
         onupdate=func.now()
@@ -220,18 +221,18 @@ class Task(Base):
         default=0
     )
 
-    scheduled_date: Mapped[datetime | None] = mapped_column(
-        DateTime,
+    scheduled_date: Mapped[date | None] = mapped_column(
+        Date,
         nullable=True
     )
 
-    estimated_time: Mapped[int | None] = mapped_column(
-        Integer,
+    estimated_time: Mapped[timedelta | None] = mapped_column(
+        Interval,
         nullable=True
     )
 
-    completed_date: Mapped[datetime | None] = mapped_column(
-        DateTime,
+    completed_date: Mapped[date | None] = mapped_column(
+        Date,
         nullable=True
     )
 
@@ -275,13 +276,13 @@ class Task(Base):
         server_default=func.now()
     )
 
-    updated_at: Mapped[datetime | None] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now(),
         onupdate=func.now()
     )
 
-    last_modified: Mapped[datetime | None] = mapped_column(
+    last_modified: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now(),
         onupdate=func.now()
@@ -314,12 +315,12 @@ class Task(Base):
     )
 
     # relationships to other tables, constraints
-    subtasks = relationship("SubTask", cascade="all, delete-orphan", back_populates="task")
+    subtasks = relationship("Subtask", cascade="all, delete-orphan", back_populates="task")
     user = relationship("User", back_populates="tasks")
     category = relationship("Category", back_populates="task")
     reminder = relationship("Reminder", back_populates="task")
 
-class SubTask(Base):
+class Subtask(Base):
     __tablename__ = "subtask"
 
     subtask_id: Mapped[int] = mapped_column(
@@ -348,8 +349,13 @@ class SubTask(Base):
         Integer
     )
 
-    completed_date: Mapped[datetime | None] = mapped_column(
-        DateTime,
+    estimated_time: Mapped[timedelta | None] = mapped_column(
+        Interval,
+        nullable=True
+    )
+
+    completed_date: Mapped[date | None] = mapped_column(
+        Date,
         nullable=True
     )
 
@@ -358,13 +364,13 @@ class SubTask(Base):
         server_default=func.now()
     )
 
-    updated_at: Mapped[datetime | None] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now(),
         onupdate=func.now()
     )
 
-    last_modified: Mapped[datetime | None] = mapped_column(
+    last_modified: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now(),
         onupdate=func.now()

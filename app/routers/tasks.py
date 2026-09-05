@@ -2,19 +2,19 @@ from typing import Annotated
 
 from core.database import get_db
 from fastapi import APIRouter, Depends
-from schemas.note_schema import NoteSync
 from schemas.sync_schema import SyncRequest, SyncResponse
-from services.note_service import note_sync_service
+from schemas.task_schema import TaskSync
+from services.task_service import task_sync_service
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
-@router.post("/sync", response_model=SyncResponse[NoteSync])
-async def note_sync(
-    request: SyncRequest[NoteSync], 
+@router.post("/sync", response_model=SyncResponse[TaskSync])
+async def task_sync(
+    request: SyncRequest[TaskSync], 
     db: Annotated[AsyncSession, Depends(get_db)]
-) -> SyncResponse[NoteSync]:
-    return await note_sync_service(
+) -> SyncResponse[TaskSync]:
+    return await task_sync_service(
         request=request,
         db=db
     )
