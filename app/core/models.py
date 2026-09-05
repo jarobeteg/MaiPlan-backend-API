@@ -1,7 +1,6 @@
 from datetime import date, datetime, timedelta
 
 from sqlalchemy import (
-    Boolean,
     Column,
     Date,
     DateTime,
@@ -13,7 +12,6 @@ from sqlalchemy import (
     String,
     Text,
     Time,
-    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -51,9 +49,6 @@ class User(Base):
     reminders = relationship("Reminder", cascade="all, delete-orphan", back_populates="user")
     notes = relationship("Note", cascade="all, delete-orphan", back_populates="user")
     tasks = relationship("Task", cascade="all, delete-orphan", back_populates="user")
-    lists = relationship("List", cascade="all, delete-orphan", back_populates="user")
-    health_reminders = relationship("HealthReminder", cascade="all, delete-orphan", back_populates="user")
-    finances = relationship("Finance", cascade="all, delete-orphan", back_populates="user")
     categories = relationship("Category", cascade="all, delete-orphan", back_populates="user")
     events = relationship("Event",  cascade="all, delete-orphan", back_populates="user")
 
@@ -84,7 +79,6 @@ class Reminder(Base):
 
     # relationships to other tables, constraints
     user = relationship("User", back_populates="reminders")
-    finance = relationship("Finance", back_populates="reminder")
     event = relationship("Event", back_populates="reminder")
     note = relationship("Note", back_populates="reminder")
     task = relationship("Task", back_populates="reminder")
@@ -402,94 +396,6 @@ class Subtask(Base):
     # relationships to other tables, constraints
     task = relationship("Task", back_populates="subtasks")
 
-class List(Base):
-    __tablename__ = "list"
-    
-    list_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-    title = Column(String(255), nullable=False)
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
-    sync_state = Column(Integer, default=0)
-    is_deleted = Column(Integer, default=0)
-    server_id = Column(Integer, nullable=True)
-
-    # indexes and other constraints
-    __table_args__ = (
-        UniqueConstraint("user_id", "title", name="uq_list_title"),
-        Index("idx_list_user", "user_id"),
-        Index("idx_list_last_modified", "last_modified"),
-        Index("idx_list_sync_state", "sync_state"),
-        Index("idx_list_server_id", "server_id"),
-        Index("idx_list_active", "list_id", postgresql_where=text("is_deleted = 0"))
-    )
-
-    # relationships to other tables, constraints
-    user = relationship("User", back_populates="lists")
-    list_items = relationship("ListItem", cascade="all, delete-orphan", back_populates="list")
-
-class ListItem(Base):
-    __tablename__ = "list_item"
-
-    item_id = Column(Integer, primary_key=True, autoincrement=True)
-    list_id = Column(Integer, ForeignKey("list.list_id", ondelete="CASCADE"), nullable=False)
-    name = Column(String(255), nullable=False)
-    quantity = Column(Integer)
-    status = Column(Boolean, default=False)
-    last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
-    sync_state = Column(Integer, default=0)
-    is_deleted = Column(Integer, default=0)
-    server_id = Column(Integer, nullable=True)
-
-    # indexes and other constraints
-    __table_args__ = (
-        UniqueConstraint("list_id", "name", name="uq_item_name"),
-        Index("idx_list_item", "list_id"),
-        Index("idx_item_last_modified", "last_modified"),
-        Index("idx_item_sync_state", "sync_state"),
-        Index("idx_item_server_id", "server_id"),
-        Index("idx_item_active", "item_id", postgresql_where=text("is_deleted = 0"))
-    )
-
-    # relationships to other tables, constraints
-    list = relationship("List", back_populates="list_items")
-
-class Finance(Base):
-    __tablename__ = "finance"
-
-    finance_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-    category_id = Column(Integer, ForeignKey("category.category_id", ondelete="SET NULL"))
-    reminder_id = Column(Integer, ForeignKey("reminder.reminder_id", ondelete="SET NULL"))
-    type = Column(Boolean, nullable=False)
-    expense_amount = Column(Numeric(10, 2), nullable=False)
-    expense_date = Column(DateTime)
-    description = Column(Text)
-    last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
-    sync_state = Column(Integer, default=0)
-    is_deleted = Column(Integer, default=0)
-    server_id = Column(Integer, nullable=True)
-
-    # indexes and other constraints
-    __table_args__ = (
-        Index("idx_finance_user", "user_id"),
-        Index("idx_finance_category", "category_id"),
-        Index("idx_finance_reminder", "reminder_id"),
-        Index("idx_finance_type", "type"),
-        Index("idx_finance_expense_date", "expense_date"),
-        Index("idx_finance_user_date", "user_id", "expense_date"),
-        Index("idx_finance_last_modified", "last_modified"),
-        Index("idx_finance_sync_state", "sync_state"),
-        Index("idx_finance_server_id", "server_id"),
-        Index("idx_finance_active", "finance_id", postgresql_where=text("is_deleted = 0"))
-    )
-
-    # relationships to other tables, constraints
-    user = relationship("User", back_populates="finances")
-    reminder = relationship("Reminder", back_populates="finance")
-    category = relationship("Category", back_populates="finance")
-
 class Category(Base):
     __tablename__ = "category"
 
@@ -520,7 +426,6 @@ class Category(Base):
     note = relationship("Note", back_populates="category")
     task = relationship("Task", back_populates="category")
     event = relationship("Event", back_populates="category")
-    finance = relationship("Finance", back_populates="category")
 
 class Event(Base):
     __tablename__ = "event"
