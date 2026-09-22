@@ -1,6 +1,10 @@
 from datetime import date, datetime, timedelta
+from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
     Column,
     Date,
     DateTime,
@@ -12,9 +16,11 @@ from sqlalchemy import (
     String,
     Text,
     Time,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -26,11 +32,21 @@ class User(Base):
     __tablename__ = "users"
 
     user_id = Column(Integer, primary_key=True, autoincrement=True)
+    sync_id = Column(PGUUID(as_uuid=True), nullable=False, default=uuid4)
     email = Column(String(64), unique=True, nullable=False)
     username = Column(String(32), unique=True, nullable=False)
     balance = Column(Numeric(10, 2), default=0.00)
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    version = Column(BigInteger, nullable=False, default=1, server_default="1")
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     password_hash = Column(Text, nullable=False)
     last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
     sync_state = Column(Integer, default=0)
@@ -39,6 +55,9 @@ class User(Base):
 
     # indexes and other constraints
     __table_args__ = (
+        CheckConstraint("version > 0", name="ck_users_version_positive"),
+        Index("idx_users_sync_id", "sync_id", unique=True),
+        Index("idx_users_deleted_at", "deleted_at"),
         Index("idx_user_last_modified", "last_modified"),
         Index("idx_user_sync_state", "sync_state"),
         Index("idx_user_server_id", "server_id"),
@@ -57,12 +76,23 @@ class Reminder(Base):
 
     reminder_id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-    reminder_time = Column(DateTime, nullable=False)
-    frequency = Column(Integer, default=0)
-    status = Column(Integer, default=1)
+    sync_id = Column(PGUUID(as_uuid=True), nullable=False, default=uuid4)
+    version = Column(BigInteger, nullable=False, default=1, server_default="1")
+    reminder_time = Column(DateTime(timezone=True), nullable=False)
+    zone_id = Column(String(255), nullable=False, default="UTC", server_default="UTC")
+    frequency = Column(Integer, nullable=False, default=0, server_default="0")
+    status = Column(Integer, nullable=False, default=1, server_default="1")
     message = Column(Text)
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
     sync_state = Column(Integer, default=0)
     is_deleted = Column(Integer, default=0)
@@ -70,6 +100,9 @@ class Reminder(Base):
 
     # indexes and other constraints
     __table_args__ = (
+        CheckConstraint("version > 0", name="ck_reminder_version_positive"),
+        UniqueConstraint("user_id", "sync_id", name="uq_reminder_user_sync_id"),
+        Index("idx_reminder_deleted_at", "deleted_at"),
         Index("idx_reminder_user", "user_id"),
         Index("idx_reminder_last_modified", "last_modified"),
         Index("idx_reminder_sync_state", "sync_state"),
@@ -98,6 +131,19 @@ class Note(Base):
         nullable=False
     )
 
+    sync_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        nullable=False,
+        default=uuid4
+    )
+
+    version: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        default=1,
+        server_default="1"
+    )
+
     category_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("category.category_id", ondelete="SET NULL"),
@@ -121,14 +167,19 @@ class Note(Base):
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         server_default=func.now()
     )
 
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now()
+    )
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
     )
 
     last_modified: Mapped[datetime] = mapped_column(
@@ -152,13 +203,17 @@ class Note(Base):
         nullable=True
     )
 
-    is_pinned: Mapped[int] = mapped_column(
-        Integer,
-        default=0
+    is_pinned: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        server_default="false"
     )
 
     # indexes and other constraints
     __table_args__ = (
+        CheckConstraint("version > 0", name="ck_note_version_positive"),
+        UniqueConstraint("user_id", "sync_id", name="uq_note_user_sync_id"),
+        Index("idx_note_deleted_at", "deleted_at"),
         Index("idx_note_user", "user_id"),
         Index("idx_note_category", "category_id"),
         Index("idx_note_reminder", "reminder_id"),
@@ -186,6 +241,19 @@ class Task(Base):
         Integer,
         ForeignKey("users.user_id", ondelete="CASCADE"),
         nullable=False
+    )
+
+    sync_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        nullable=False,
+        default=uuid4
+    )
+
+    version: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        default=1,
+        server_default="1"
     )
 
     category_id: Mapped[int | None] = mapped_column(
@@ -266,14 +334,19 @@ class Task(Base):
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         server_default=func.now()
     )
 
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now()
+    )
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
     )
 
     last_modified: Mapped[datetime] = mapped_column(
@@ -299,6 +372,9 @@ class Task(Base):
 
     # indexes and other constraints
     __table_args__ = (
+        CheckConstraint("version > 0", name="ck_task_version_positive"),
+        UniqueConstraint("user_id", "sync_id", name="uq_task_user_sync_id"),
+        Index("idx_task_deleted_at", "deleted_at"),
         Index("idx_task_user", "user_id"),
         Index("idx_task_category", "category_id"),
         Index("idx_task_reminder", "reminder_id"),
@@ -321,6 +397,25 @@ class Subtask(Base):
         Integer,
         primary_key=True,
         autoincrement=True
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False
+    )
+
+    sync_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        nullable=False,
+        default=uuid4
+    )
+
+    version: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        default=1,
+        server_default="1"
     )
 
     task_id: Mapped[int] = mapped_column(
@@ -354,14 +449,19 @@ class Subtask(Base):
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         server_default=func.now()
     )
 
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now()
+    )
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
     )
 
     last_modified: Mapped[datetime] = mapped_column(
@@ -387,6 +487,10 @@ class Subtask(Base):
 
     # indexes and other constraints
     __table_args__ = (
+        CheckConstraint("version > 0", name="ck_subtask_version_positive"),
+        UniqueConstraint("user_id", "sync_id", name="uq_subtask_user_sync_id"),
+        Index("idx_subtask_deleted_at", "deleted_at"),
+        Index("idx_subtask_user", "user_id"),
         Index("idx_subtask_task_id", "task_id"),
         Index("idx_subtask_sync_state", "sync_state"),
         Index("idx_subtask_server_id", "server_id"),
@@ -401,12 +505,22 @@ class Category(Base):
 
     category_id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    sync_id = Column(PGUUID(as_uuid=True), nullable=False, default=uuid4)
+    version = Column(BigInteger, nullable=False, default=1, server_default="1")
     name = Column(String(255), nullable=False)
-    description = Column(Text)
+    description = Column(Text, nullable=False)
     color = Column(String(32), nullable=False)
     icon = Column(String(32), nullable=False)
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
     sync_state = Column(Integer, default=0)
     is_deleted = Column(Integer, default=0)
@@ -414,6 +528,9 @@ class Category(Base):
 
     # indexes and other constraints
     __table_args__ = (
+        CheckConstraint("version > 0", name="ck_category_version_positive"),
+        UniqueConstraint("user_id", "sync_id", name="uq_category_user_sync_id"),
+        Index("idx_category_deleted_at", "deleted_at"),
         Index("idx_category_user", "user_id"),
         Index("idx_category_last_modified", "last_modified"),
         Index("idx_category_sync_state", "sync_state"),
@@ -432,6 +549,8 @@ class Event(Base):
 
     event_id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    sync_id = Column(PGUUID(as_uuid=True), nullable=False, default=uuid4)
+    version = Column(BigInteger, nullable=False, default=1, server_default="1")
     category_id = Column(Integer, ForeignKey("category.category_id", ondelete="SET NULL"))
     reminder_id = Column(Integer, ForeignKey("reminder.reminder_id", ondelete="SET NULL"))
     title = Column(String(255), nullable=False)
@@ -439,10 +558,19 @@ class Event(Base):
     date = Column(Date, nullable=False)
     start_time = Column(Time)
     end_time = Column(Time)
-    priority = Column(Integer, default=0)
+    zone_id = Column(String(255), nullable=False, default="UTC", server_default="UTC")
+    priority = Column(Integer, nullable=False, default=0, server_default="0")
     location = Column(String(255))
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     last_modified = Column(DateTime, default=func.now(), onupdate=func.now())
     sync_state = Column(Integer, default=0)
     is_deleted = Column(Integer, default=0)
@@ -450,6 +578,9 @@ class Event(Base):
 
     # indexes and other constraints
     __table_args__ = (
+        CheckConstraint("version > 0", name="ck_event_version_positive"),
+        UniqueConstraint("user_id", "sync_id", name="uq_event_user_sync_id"),
+        Index("idx_event_deleted_at", "deleted_at"),
         Index("idx_event_user", "user_id"),
         Index("idx_event_category", "category_id"),
         Index("idx_event_reminder", "reminder_id"),
@@ -465,6 +596,43 @@ class Event(Base):
     user = relationship("User", back_populates="events")
     reminder = relationship("Reminder", back_populates="event")
     category = relationship("Category", back_populates="event")
+
+
+class AuthSession(Base):
+    __tablename__ = "auth_sessions"
+
+    session_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    device_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    refresh_token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    refresh_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("idx_auth_session_user_device", "user_id", "device_id"),
+        Index("idx_auth_session_refresh_expires", "refresh_expires_at"),
+        Index("idx_auth_session_active", "session_id", postgresql_where=text("revoked_at IS NULL")),
+    )
+
 
 class SyncLog(Base):
     __tablename__ = "sync_log"
@@ -522,15 +690,111 @@ class SyncLog(Base):
     )
 
     timestamp: Mapped[datetime] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
+
+    request_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
+    response_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
+    device_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
+    input_cursor: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    output_cursor: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    received_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    acknowledged_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rejected_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    conflict_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    returned_change_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # indexes and other constraints
     __table_args__ = (
         Index("idx_sync_log_user_id", "user_id"),
         Index("idx_sync_log_timestamp", "timestamp"),
         Index("idx_sync_log_result", "result"),
-        Index("idx_sync_log_entity", "entity_type", "entity_id")
+        Index("idx_sync_log_entity", "entity_type", "entity_id"),
+        Index("idx_sync_log_request_id", "request_id")
+    )
+
+
+class ProcessedMutation(Base):
+    __tablename__ = "processed_mutations"
+
+    processed_mutation_id: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        autoincrement=True,
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    mutation_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    device_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    entity_sync_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    operation: Mapped[str] = mapped_column(String(16), nullable=False)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(32), nullable=False)
+    result_version: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    server_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    processed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "mutation_id", name="uq_processed_mutation_user_id"),
+        CheckConstraint(
+            "operation IN ('CREATE', 'UPDATE', 'DELETE')",
+            name="ck_processed_mutation_operation",
+        ),
+        CheckConstraint(
+            "outcome IN ('ACKNOWLEDGED', 'REJECTED', 'CONFLICT')",
+            name="ck_processed_mutation_outcome",
+        ),
+        Index("idx_processed_mutation_entity", "user_id", "entity_type", "entity_sync_id"),
+        Index("idx_processed_mutation_processed_at", "processed_at"),
+    )
+
+
+class SyncChangeLog(Base):
+    __tablename__ = "sync_change_log"
+
+    sequence: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+        autoincrement=True,
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    entity_sync_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    operation: Mapped[str] = mapped_column(String(16), nullable=False)
+    entity_version: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    origin_device_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
+    origin_mutation_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
+    changed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    __table_args__ = (
+        CheckConstraint("entity_version > 0", name="ck_sync_change_version_positive"),
+        CheckConstraint(
+            "operation IN ('CREATE', 'UPDATE', 'DELETE')",
+            name="ck_sync_change_operation",
+        ),
+        Index("idx_sync_change_user_sequence", "user_id", "sequence"),
+        Index("idx_sync_change_entity", "user_id", "entity_type", "entity_sync_id"),
+        Index("idx_sync_change_changed_at", "changed_at"),
     )

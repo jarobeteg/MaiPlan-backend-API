@@ -1,9 +1,10 @@
-from sqlalchemy.sql import expression
+from core.models import SyncChangeLog, User
+from schemas.auth_schema import UserRegister
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from core.models import User
-from schemas.auth_schema import UserRegister, UserResetPassword
+from sqlalchemy.sql import expression
 from utils.password_utils import hash_password
+
 
 async def get_user_by_id(db: AsyncSession, user_id: int):
     stmt = select(User).where(expression.column("user_id") == user_id)
@@ -20,24 +21,35 @@ async def get_user_by_username(db: AsyncSession, username: str):
     result = await db.execute(stmt)
     return result.scalars().first()
 
-async def reset_user_password(db: AsyncSession, user: UserResetPassword):
-    hashed_password = hash_password(user.password)
-
-    stmt = (update(User)
-            .where(expression.column("email") == user.email)
-            .values(password_hash=hashed_password, sync_state=4)
-            .execution_options(synchronize_session="fetch")
-    )
-
-    await db.execute(stmt)
-    await db.commit()
-
 async def create_user(db: AsyncSession, user: UserRegister):
     hashed_password = hash_password(user.password)
-    new_user = User(email=user.email, username=user.username, password_hash=hashed_password, sync_state=4)
+    new_user = User(
+        sync_id=user.sync_id,
+        email=user.email,
+        username=user.username,
+        password_hash=hashed_password,
+        sync_state=4,
+    )
     db.add(new_user)
     await db.flush()
     new_user.server_id = new_user.user_id
+    db.add(
+        SyncChangeLog(
+            user_id=new_user.user_id,
+            entity_type="user",
+            entity_sync_id=new_user.sync_id,
+            operation="CREATE",
+            entity_version=new_user.version,
+            data={
+                "email": new_user.email,
+                "username": new_user.username,
+                "created_at": new_user.created_at.isoformat(),
+                "updated_at": new_user.updated_at.isoformat(),
+            },
+            origin_device_id=user.device_id,
+            origin_mutation_id=None,
+        )
+    )
     await db.commit()
     await db.refresh(new_user)
     return new_user

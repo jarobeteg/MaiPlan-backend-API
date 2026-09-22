@@ -1,51 +1,45 @@
-from pydantic import BaseModel
+from datetime import datetime
+from uuid import UUID
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str
+from pydantic import BaseModel, ConfigDict, Field
 
-class UserResetPassword(BaseModel):
-    email: str
-    password: str
-    password_again: str
 
 class UserRegister(BaseModel):
+    sync_id: UUID
     email: str
     username: str
     password: str
     password_again: str
+    device_id: UUID
 
 class UserLogin(BaseModel):
     email: str
     password: str
+    device_id: UUID
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+    device_id: UUID
 
 class UserResponse(BaseModel):
-    user_id: int
+    model_config = ConfigDict(from_attributes=True)
+
+    sync_id: UUID
     email: str
     username: str
-
-    class Config:
-        from_attributes = True # auto conversion from ORM model to pydantic schema
+    server_version: int = Field(validation_alias="version")
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: datetime | None
 
 class AuthResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     access_token: str
+    token_type: str = "bearer"
+    refresh_token: str
+    session_id: UUID
+    access_token_expires_at: datetime
+    refresh_token_expires_at: datetime
     user: UserResponse
-
-    class Config:
-        from_attributes = True # auto conversion from ORM model to pydantic schema
-
-class AuthSync(BaseModel):
-    user_id: int
-    server_id: int
-    email: str
-    username: str
-    balance: float
-    created_at: int
-    updated_at: int
-    password_hash: str
-    last_modified: int
-    sync_state: int
-    is_deleted: int
-
-    class Config:
-        from_attributes = True # auto conversion from ORM model to pydantic schema

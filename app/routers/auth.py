@@ -1,13 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from core.database import get_db
-from schemas.auth_schema import UserRegister, UserLogin, UserResponse, UserResetPassword, Token, AuthResponse, AuthSync
-from schemas.sync_schema import SyncRequest, SyncResponse
-from core.models import User
-from crud.user_crud import get_user_by_email, get_user_by_id, get_user_by_username, create_user, reset_user_password, get_pending_user, set_auth_sync_state
-from utils.auth_utils import create_access_token, get_current_user
-from utils.password_utils import verify_password, is_valid_password, do_passwords_match
 import re
+
+from core.database import get_db
+from crud.user_crud import create_user, get_user_by_email, get_user_by_username
+from fastapi import APIRouter, Depends, HTTPException
+from schemas.auth_schema import (
+    AuthResponse,
+    RefreshTokenRequest,
+    UserLogin,
+    UserRegister,
+    UserResponse,
+)
+from services.auth_session_service import IssuedSession, create_session, rotate_session
+from sqlalchemy.ext.asyncio import AsyncSession
+from utils.auth_utils import create_access_token, get_current_user
+from utils.password_utils import do_passwords_match, is_valid_password, verify_password
 
 router = APIRouter()
 
@@ -43,9 +49,20 @@ def validate_passwords(password: str, password_again: str):
     if not do_passwords_match(password, password_again):
         raise HTTPException(status_code=400, detail={"code": 7, "message": "Passwords do not match!"})
 
-def get_access_token(user_id: int):
-    token_data = {"sub": user_id}
-    return create_access_token(data=token_data)
+def build_auth_response(user, issued_session: IssuedSession) -> AuthResponse:
+    access_token, access_expires_at = create_access_token(
+        user_id=user.user_id,
+        session_id=issued_session.session.session_id,
+        device_id=issued_session.session.device_id,
+    )
+    return AuthResponse(
+        access_token=access_token,
+        refresh_token=issued_session.refresh_token,
+        session_id=issued_session.session.session_id,
+        access_token_expires_at=access_expires_at,
+        refresh_token_expires_at=issued_session.session.refresh_expires_at,
+        user=UserResponse.model_validate(user),
+    )
 
 @router.post("/register", response_model=AuthResponse)
 async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
@@ -63,8 +80,8 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
     validate_password_strength(user.password)
     validate_passwords(user.password, user.password_again.strip())
     new_user = await create_user(db, user)
-
-    return AuthResponse(access_token=get_access_token(new_user.user_id), user=new_user)
+    issued_session = await create_session(db, new_user, user.device_id)
+    return build_auth_response(new_user, issued_session)
 
 @router.post("/login", response_model=AuthResponse)
 async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
@@ -74,89 +91,25 @@ async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
     user.password = validate_password(user.password)
     if not verify_password(user.password, existing_user.password_hash):
         raise HTTPException(status_code=401, detail={"code": 8, "message": "Incorrect password!"})
+    if existing_user.deleted_at is not None:
+        raise HTTPException(status_code=401, detail={"code": 8, "message": "Account is unavailable"})
+    issued_session = await create_session(db, existing_user, user.device_id)
+    return build_auth_response(existing_user, issued_session)
 
-    return AuthResponse(access_token=get_access_token(existing_user.user_id), user=existing_user)
 
-@router.post("/reset-password", response_model=AuthResponse)
-async def reset_password(user: UserResetPassword, db: AsyncSession = Depends(get_db)):
-    user.email = validate_email(user.email)
-    existing_user = await validate_email_existence(db, user.email)
-
-    user.password = validate_password(user.password)
-    validate_password_strength(user.password)
-    validate_passwords(user.password, user.password_again.strip())
-    await reset_user_password(db, user)
-
-    return AuthResponse(access_token=get_access_token(existing_user.user_id), user=existing_user)
-
-@router.post("/token-refresh", response_model=Token)
-async def token_refresh(current_user: UserResponse = Depends(get_current_user)):
-    return Token(access_token=get_access_token(current_user.user_id), token_type="bearer")
+@router.post("/refresh", response_model=AuthResponse)
+async def refresh(
+    request: RefreshTokenRequest,
+    db: AsyncSession = Depends(get_db),
+) -> AuthResponse:
+    user, issued_session = await rotate_session(
+        db,
+        request.refresh_token,
+        request.device_id,
+    )
+    return build_auth_response(user, issued_session)
 
 # an example of a protected route by jwt
-@router.get("/me", response_model=AuthResponse)
-async def get_my_profile(current_user: UserResponse = Depends(get_current_user)):
-    return AuthResponse(access_token=get_access_token(current_user.user_id), user=current_user)
-
-@router.post("/sync", response_model=SyncResponse[AuthSync])
-async def auth_sync(request: SyncRequest[AuthSync], db: AsyncSession = Depends(get_db)):
-    acknowledged = []
-    rejected = []
-
-    change = request.changes[0] if len(request.changes) > 0 else None
-
-    if not change:
-        pending_user: User = await get_pending_user(db, request.user_id)
-        if pending_user:
-            await set_auth_sync_state(db, request.user_id, sync_state=0)
-            await db.refresh(pending_user)
-            acknowledged.append(to_auth_sync(pending_user))
-
-        return SyncResponse(user_id=request.user_id, acknowledged=acknowledged, rejected=rejected)
-
-    existing_user: User = await get_user_by_id(db, request.user_id)
-
-    if not existing_user:
-        change.is_deleted = 1
-        rejected.append(change)
-        return SyncResponse(user_id=request.user_id, acknowledged=acknowledged, rejected=rejected)
-
-    existing_last_modified_ms = int(existing_user.last_modified.timestamp() * 1000)
-
-    if change.last_modified <= existing_last_modified_ms:
-        match change.sync_state:
-            case 1:
-                change.sync_state = 2
-            case 2:
-                change.sync_state = 1
-
-    match change.sync_state:
-         case 1:
-             pass
-         case 2:
-             await set_auth_sync_state(db, request.user_id, sync_state=0)
-             await db.refresh(existing_user)
-             acknowledged.append(to_auth_sync(existing_user))
-         case 3:
-             pass
-         case 4:
-             await set_auth_sync_state(db, request.user_id, sync_state=0)
-             await db.refresh(existing_user)
-             acknowledged.append(to_auth_sync(existing_user))
-
-    return SyncResponse(user_id=request.user_id, acknowledged=acknowledged, rejected=rejected)
-
-def to_auth_sync(user: User) -> AuthSync:
-    return AuthSync(
-        user_id=user.user_id,
-        server_id=user.server_id,
-        email=user.email,
-        username=user.username,
-        balance=float(user.balance),
-        created_at=int(user.created_at.timestamp() * 1000),
-        updated_at=int(user.updated_at.timestamp() * 1000),
-        password_hash=user.password_hash,
-        last_modified=int(user.last_modified.timestamp() * 1000),
-        sync_state=user.sync_state,
-        is_deleted=user.is_deleted
-    )
+@router.get("/me", response_model=UserResponse)
+async def get_my_profile(current_user=Depends(get_current_user)):
+    return current_user
