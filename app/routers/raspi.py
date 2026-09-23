@@ -1,7 +1,8 @@
-from fastapi import APIRouter
-from fastapi.responses import JSONResponse
 import socket
 import time
+
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
 start_time = time.time()

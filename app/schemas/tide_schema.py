@@ -2,6 +2,11 @@ import re
 from typing import Any, Literal
 from uuid import UUID
 
+from core.settings import (
+    TIDE_DEFAULT_DATA_LIMIT,
+    TIDE_MAX_DATA_LIMIT,
+    TIDE_MAX_MUTATIONS_PER_REQUEST,
+)
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -12,11 +17,13 @@ from pydantic import (
 )
 
 TIDE_PROTOCOL_VERSION = 1
-DEFAULT_DATA_LIMIT = 100
-MAX_DATA_LIMIT = 500
-MAX_MUTATIONS_PER_REQUEST = 100
+DEFAULT_DATA_LIMIT = TIDE_DEFAULT_DATA_LIMIT
+MAX_DATA_LIMIT = TIDE_MAX_DATA_LIMIT
+MAX_MUTATIONS_PER_REQUEST = TIDE_MAX_MUTATIONS_PER_REQUEST
 
-MUTABLE_ENTITY_TYPES = frozenset({"category", "reminder", "event", "note"})
+MUTABLE_ENTITY_TYPES = frozenset(
+    {"category", "reminder", "event", "note", "task", "subtask"}
+)
 SUPPORTED_CHANGE_ENTITY_TYPES = frozenset({"user", *MUTABLE_ENTITY_TYPES})
 
 

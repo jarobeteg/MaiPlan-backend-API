@@ -1,23 +1,22 @@
 from core.models import SyncChangeLog, User
 from schemas.auth_schema import UserRegister
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql import expression
 from utils.password_utils import hash_password
 
 
 async def get_user_by_id(db: AsyncSession, user_id: int):
-    stmt = select(User).where(expression.column("user_id") == user_id)
+    stmt = select(User).where(User.user_id == user_id)
     result = await db.execute(stmt)
     return result.scalars().first()
 
 async def get_user_by_email(db: AsyncSession, email: str):
-    stmt = select(User).where(expression.column("email") == email)
+    stmt = select(User).where(User.email == email)
     result = await db.execute(stmt)
     return result.scalars().first()
 
 async def get_user_by_username(db: AsyncSession, username: str):
-    stmt = select(User).where(expression.column("username") == username)
+    stmt = select(User).where(User.username == username)
     result = await db.execute(stmt)
     return result.scalars().first()
 
@@ -28,11 +27,13 @@ async def create_user(db: AsyncSession, user: UserRegister):
         email=user.email,
         username=user.username,
         password_hash=hashed_password,
-        sync_state=4,
     )
     db.add(new_user)
     await db.flush()
-    new_user.server_id = new_user.user_id
+    await db.refresh(
+        new_user,
+        attribute_names=["created_at", "updated_at"],
+    )
     db.add(
         SyncChangeLog(
             user_id=new_user.user_id,
@@ -53,21 +54,3 @@ async def create_user(db: AsyncSession, user: UserRegister):
     await db.commit()
     await db.refresh(new_user)
     return new_user
-
-async def get_pending_user(db: AsyncSession, user_id: int):
-    stmt = select(User).where(
-        (expression.column("user_id") == user_id) & (expression.column("sync_state") != 0)
-    )
-    result = await db.execute(stmt)
-    return result.scalars().first()
-
-async def set_auth_sync_state(db: AsyncSession, user_id: int, sync_state: int):
-    stmt = (
-        update(User)
-        .where(expression.column("user_id") == user_id)
-        .values(sync_state=sync_state)
-        .execution_options(synchronize_session="fetch")
-    )
-
-    await db.execute(stmt)
-    await db.commit()

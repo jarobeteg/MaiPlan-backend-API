@@ -1,16 +1,14 @@
 import hashlib
-import os
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from core.models import AuthSession, User
+from core.settings import REFRESH_TOKEN_INACTIVITY_DAYS
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-REFRESH_TOKEN_INACTIVITY_DAYS = int(os.getenv("REFRESH_TOKEN_INACTIVITY_DAYS", "30"))
 
 
 @dataclass(frozen=True)

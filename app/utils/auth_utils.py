@@ -1,12 +1,11 @@
-import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from typing import Annotated
 from uuid import UUID
 
 from core.database import get_db
 from core.models import AuthSession, User
-from dotenv import load_dotenv
+from core.settings import ACCESS_TOKEN_EXPIRY_MINUTES, SECRET_KEY
 from fastapi import Depends, HTTPException, Security
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
@@ -14,13 +13,7 @@ from jose.exceptions import ExpiredSignatureError, JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-env = os.environ["ENV"]
-BASE_DIR = Path(__file__).resolve().parents[2]
-env_file = BASE_DIR / f".env.{env}"
-load_dotenv(env_file)
-SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRY_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRY_MINUTES", "15"))
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -64,8 +57,8 @@ def create_access_token(
 
 
 async def get_auth_context(
-    token: str = Security(oauth2_scheme),
-    db: AsyncSession = Depends(get_db),
+    token: Annotated[str, Security(oauth2_scheme)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> AuthContext:
     if not SECRET_KEY:
         raise RuntimeError("SECRET_KEY is not configured")
@@ -102,6 +95,6 @@ async def get_auth_context(
 
 
 async def get_current_user(
-    context: AuthContext = Depends(get_auth_context),
+    context: Annotated[AuthContext, Depends(get_auth_context)],
 ) -> User:
     return context.user

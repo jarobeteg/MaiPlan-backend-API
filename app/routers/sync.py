@@ -21,7 +21,7 @@ async def sync_exchange(
             status_code=403,
             detail={
                 "code": "AUTH_REQUIRED",
-                "message": "The TIDE device ID does not match the authenticated session",
+                "message": "TIDE device ID does not match the authenticated session",
             },
         )
     return await exchange_tide(db=db, current_user=auth_context.user, request=request)

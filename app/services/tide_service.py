@@ -4,7 +4,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
-from typing import Any
+from typing import Any, Literal, cast
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -20,6 +20,7 @@ from core.models import (
     Task,
     User,
 )
+from core.settings import TIDE_MAX_REQUEST_BYTES
 from fastapi import HTTPException
 from pydantic import ValidationError
 from schemas.tide_schema import (
@@ -55,7 +56,7 @@ CREATE = "CREATE"
 UPDATE = "UPDATE"
 DELETE = "DELETE"
 OPERATIONS = {CREATE, UPDATE, DELETE}
-MAX_REQUEST_BYTES = 2 * 1024 * 1024
+MAX_REQUEST_BYTES = TIDE_MAX_REQUEST_BYTES
 
 MALFORMED_MUTATION = "MALFORMED_MUTATION"
 UNKNOWN_ENTITY_TYPE = "UNKNOWN_ENTITY_TYPE"
@@ -275,14 +276,20 @@ def _outcome_from_ledger(
         "entity_sync_id": ledger.entity_sync_id,
     }
     if ledger.outcome == ACKNOWLEDGED:
+        result_version = ledger.result_version
+        if result_version is None:
+            raise RuntimeError("An acknowledged mutation is missing its result version")
         return TideAcknowledgement(
             **identity,
-            server_version=ledger.result_version,
+            server_version=result_version,
         )
     if ledger.outcome == CONFLICT:
+        result_version = ledger.result_version
+        if result_version is None:
+            raise RuntimeError("A conflicting mutation is missing its result version")
         return TideConflict(
             **identity,
-            server_version=ledger.result_version,
+            server_version=result_version,
             server_data=ledger.server_data,
         )
     return TideRejection(
@@ -616,7 +623,6 @@ async def _create_entity(
     user_id: int,
     mutation: TideMutation,
     payload,
-    now: datetime,
 ):
     if mutation.entity_type == "user":
         raise MutationRejected(MALFORMED_MUTATION, "Users are created through registration")
@@ -637,17 +643,12 @@ async def _create_entity(
         user_id=user_id,
         sync_id=mutation.entity_sync_id,
         version=1,
-        created_at=now,
-        updated_at=now,
         deleted_at=None,
-        sync_state=0,
-        is_deleted=0,
     )
     await _apply_payload(db, user_id, mutation.entity_type, entity, payload)
     db.add(entity)
     await db.flush()
-    if hasattr(entity, "server_id"):
-        entity.server_id = getattr(entity, config.id_attribute)
+    await db.refresh(entity, attribute_names=["created_at", "updated_at"])
     return entity
 
 
@@ -704,11 +705,13 @@ async def _detach_deleted_relationships(
         relationships = (
             (Event, "event", "category_id"),
             (Note, "note", "category_id"),
+            (Task, "task", "category_id"),
         )
     elif mutation.entity_type == "reminder":
         relationships = (
             (Event, "event", "reminder_id"),
             (Note, "note", "reminder_id"),
+            (Task, "task", "reminder_id"),
         )
     else:
         relationships = ()
@@ -768,7 +771,6 @@ async def _detach_deleted_relationships(
         subtask.version += 1
         subtask.updated_at = now
         subtask.deleted_at = now
-        subtask.is_deleted = 1
         _append_change(
             db,
             user_id,
@@ -797,7 +799,7 @@ async def _evaluate_mutation(
     now = _utc_now()
 
     if mutation.operation == CREATE:
-        entity = await _create_entity(db, user_id, mutation, payload, now)
+        entity = await _create_entity(db, user_id, mutation, payload)
     else:
         if mutation.base_version is None:
             raise MutationRejected(
@@ -824,7 +826,6 @@ async def _evaluate_mutation(
             await _apply_payload(db, user_id, mutation.entity_type, entity, payload)
         else:
             entity.deleted_at = now
-            entity.is_deleted = 1
         await db.flush()
 
     change_data = None
@@ -842,9 +843,6 @@ async def _evaluate_mutation(
         change_data,
     )
     if mutation.operation == DELETE:
-        # Give the primary tombstone the earlier sequence, then make the chosen
-        # relationship policy explicit: categories/reminders detach active
-        # children, while deleting a task tombstones its subtasks.
         await db.flush()
         await _detach_deleted_relationships(
             db,
@@ -955,7 +953,7 @@ async def _load_changes(
             sequence=str(row.sequence),
             entity_type=row.entity_type,
             entity_sync_id=row.entity_sync_id,
-            operation=row.operation,
+            operation=cast(Literal["CREATE", "UPDATE", "DELETE"], row.operation),
             server_version=row.entity_version,
             data=row.data,
         )
@@ -983,8 +981,6 @@ async def exchange_tide(
     cursor = _parse_cursor(request.cursor)
     response_id = uuid4()
 
-    # Authentication queried through this same session and may have opened an
-    # implicit read transaction. End it before starting per-mutation transactions.
     if db.in_transaction():
         await db.commit()
 
@@ -1007,14 +1003,7 @@ async def exchange_tide(
         db.add(
             SyncLog(
                 user_id=current_user.user_id,
-                entity_type="batch",
-                entity_id=None,
-                old_data=None,
-                new_data=None,
-                action="SYNC",
                 result="SUCCESS",
-                exception_type=None,
-                exception_message=None,
                 request_id=request.request_id,
                 response_id=response_id,
                 device_id=request.device_id,

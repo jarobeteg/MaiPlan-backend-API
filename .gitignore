@@ -12,3 +12,4 @@ __pycache__
 /.idea/modules.xml
 /.idea/inspectionProfiles/profiles_settings.xml
 /.idea/vcs.xml
+db_schema.sql

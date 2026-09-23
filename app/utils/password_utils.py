@@ -1,5 +1,6 @@
-from passlib.context import CryptContext
 import re
+
+from passlib.context import CryptContext
 
 # deprecated auto means that if bcrypt gets a new update then passlib will rehash old passwords
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -24,10 +25,7 @@ def is_valid_password(password: str) -> bool:
     if not re.search(r"[0-9]", password):
         return False
 
-    if not re.search(r"[!_@#$?]", password):
-        return False
-
-    return True
+    return re.search(r"[!_@#$?]", password) is not None
 
 def do_passwords_match(password: str, password_again: str) -> bool:
     return password == password_again
