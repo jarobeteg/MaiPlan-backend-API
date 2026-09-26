@@ -1,16 +1,15 @@
 import re
 
-from passlib.context import CryptContext
+from pwdlib import PasswordHash
 
-# deprecated auto means that if bcrypt gets a new update then passlib will rehash old passwords
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+password_hash = PasswordHash.recommended()
 
 # unused code but I leave it here just in case
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return password_hash.hash(password)
 
 def verify_password(plain_password, hashed_password) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    return password_hash.verify(plain_password, hashed_password)
 
 def is_valid_password(password: str) -> bool:
     if len(password) < 8:

@@ -6,7 +6,7 @@ psycopg2-binary
 alembic
 python-dotenv
 pydantic[email]
-passlib[bcrypt]
+pwdlib[argon2]
 python-multipart
 python-jose[cryptography]
 tzdata
