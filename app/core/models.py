@@ -69,7 +69,6 @@ class User(TideEntityMixin, Base):
 
     __table_args__ = (
         UniqueConstraint("email", name="uq_users_email"),
-        UniqueConstraint("username", name="uq_users_username"),
         UniqueConstraint("sync_id", name="uq_users_sync_id"),
         CheckConstraint("version > 0", name="ck_users_version_positive"),
         CheckConstraint("length(btrim(email)) > 0", name="ck_users_email_not_blank"),
