@@ -1,6 +1,8 @@
 import re
+from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from core.settings import (
     TIDE_DEFAULT_DATA_LIMIT,
@@ -130,6 +132,12 @@ class ZonedPayload(TideModel):
             value,
         ):
             raise ValueError("zone_id must use an IANA time-zone identifier")
+
+        try:
+            ZoneInfo(value)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError("zone_id is not available") from exc
+
         return value
 
 
@@ -158,6 +166,32 @@ class EventPayload(ZonedPayload):
         if not value:
             raise ValueError("title must not be blank")
         return value
+
+    @model_validator(mode="after")
+    def event_times_must_be_consistent(self):
+        if (self.start_time is None) != (self.end_time is None):
+            raise ValueError("start_time and end_time must be provided together")
+
+        zone = ZoneInfo(self.zone_id)
+
+        event_date = utc_from_millis(self.date).astimezone(zone).date()
+
+        if self.start_time is not None and self.end_time is not None:
+            start = utc_from_millis(self.start_time).astimezone(zone)
+            end = utc_from_millis(self.end_time).astimezone(zone)
+
+            if start.date() != event_date or end.date() != event_date:
+                raise ValueError("event timestamps must use the event date")
+
+            if start.fold == 1 or end.fold == 1:
+                raise ValueError(
+                    "the second occurrence of an overlapping event time is unsupported"
+                )
+
+            if end.time() <= start.time():
+                raise ValueError("end_time must be after start_time")
+
+        return self
 
 
 class NotePayload(TideModel):
@@ -217,3 +251,9 @@ ENTITY_PAYLOAD_MODELS: dict[str, type[TideModel]] = {
     "subtask": SubtaskPayload,
     "user": UserPayload,
 }
+
+def utc_from_millis(value: int) -> datetime:
+    try:
+        return datetime.fromtimestamp(value / 1000, timezone.utc)
+    except (OverflowError, OSError, ValueError) as exc:
+        raise ValueError("timestamp is outside the supported range") from exc

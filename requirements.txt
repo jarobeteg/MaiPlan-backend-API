@@ -9,4 +9,4 @@ pydantic[email]
 pwdlib[argon2]
 python-multipart
 python-jose[cryptography]
-tzdata
+tzdata==2026.4
