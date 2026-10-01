@@ -350,9 +350,21 @@ class Event(TideEntityMixin, Base):
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    date: Mapped[date] = mapped_column(Date, nullable=False)
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date] = mapped_column(Date, nullable=False)
     start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    recurrence_frequency: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    recurrence_interval: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    recurrence_weekdays: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    recurrence_monthly_mode: Mapped[str | None] = mapped_column(
+        String(24), nullable=True
+    )
+    recurrence_until_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    reminder_offset_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reminder_lead_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reminder_minute_of_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    relative_reminder_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     zone_id: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
@@ -372,11 +384,66 @@ class Event(TideEntityMixin, Base):
         CheckConstraint("version > 0", name="ck_events_version_positive"),
         CheckConstraint("length(btrim(title)) > 0", name="ck_events_title_not_blank"),
         CheckConstraint("length(btrim(zone_id)) > 0", name="ck_events_zone_not_blank"),
+        CheckConstraint("end_date >= start_date", name="ck_events_start_date_range"),
+        CheckConstraint("(start_time IS NULL) = (end_time IS NULL)", name="ck_events_time_pair"),
+        CheckConstraint(
+            "reminder_offset_minutes IS NULL OR "
+            "(start_time IS NOT NULL AND reminder_offset_minutes BETWEEN 0 AND 10080)",
+            name="ck_events_timed_reminder",
+        ),
+        CheckConstraint(
+            "(reminder_lead_days IS NULL AND reminder_minute_of_day IS NULL) OR "
+            "(start_time IS NULL AND reminder_lead_days IS NOT NULL AND "
+            "reminder_minute_of_day IS NOT NULL AND reminder_lead_days BETWEEN 0 AND 7 AND "
+            "reminder_minute_of_day BETWEEN 0 AND 1439)",
+            name="ck_events_date_reminder",
+        ),
+        CheckConstraint(
+            "num_nonnulls(reminder_id, reminder_offset_minutes, reminder_lead_days) <= 1",
+            name="ck_events_one_reminder_mode",
+        ),
+        CheckConstraint(
+            "recurrence_frequency IS NULL OR reminder_id IS NULL",
+            name="ck_events_absolute_only_one_off",
+        ),
+        CheckConstraint(
+            "relative_reminder_message IS NULL OR reminder_offset_minutes IS NOT NULL "
+            "OR reminder_lead_days IS NOT NULL",
+            name="ck_events_relative_message",
+        ),
+        CheckConstraint(
+            "COALESCE(("
+            "(recurrence_frequency IS NULL AND recurrence_interval IS NULL AND "
+            "recurrence_weekdays IS NULL AND recurrence_monthly_mode IS NULL AND "
+            "recurrence_until_date IS NULL) OR "
+            "(recurrence_frequency = 'DAILY' AND recurrence_interval BETWEEN 1 AND 365 "
+            "AND recurrence_weekdays IS NULL AND recurrence_monthly_mode IS NULL) OR "
+            "(recurrence_frequency = 'WEEKLY' AND recurrence_interval BETWEEN 1 AND 52 "
+            "AND recurrence_weekdays BETWEEN 1 AND 127 AND recurrence_monthly_mode IS NULL) OR "
+            "(recurrence_frequency = 'MONTHLY' AND recurrence_interval BETWEEN 1 AND 24 "
+            "AND recurrence_weekdays IS NULL AND recurrence_monthly_mode IN "
+            "('DAY_OF_MONTH', 'LAST_DAY', 'NTH_WEEKDAY', 'LAST_WEEKDAY'))"
+            "), FALSE)",
+            name="ck_events_recurrence_shape",
+        ),
+        CheckConstraint(
+            "recurrence_until_date IS NULL OR recurrence_until_date >= start_date",
+            name="ck_events_recurrence_until",
+        ),
+        CheckConstraint(
+            "recurrence_monthly_mode IS NULL OR recurrence_monthly_mode IN "
+            "('DAY_OF_MONTH', 'NTH_WEEKDAY') OR "
+            "(recurrence_monthly_mode = 'LAST_DAY' AND start_date = "
+            "(date_trunc('month', start_date::timestamp) + interval '1 month - 1 day')::date) OR "
+            "(recurrence_monthly_mode = 'LAST_WEEKDAY' AND "
+            "extract(month from start_date + 7) <> extract(month from start_date))",
+            name="ck_events_monthly_anchor",
+        ),
         Index("idx_events_user", "user_id"),
         Index("idx_events_category", "category_id"),
         Index("idx_events_reminder", "reminder_id"),
-        Index("idx_events_date", "date"),
-        Index("idx_events_user_date", "user_id", "date"),
+        Index("idx_events_start_date", "start_date"),
+        Index("idx_events_user_start_date", "user_id", "start_date"),
         Index("idx_events_deleted_at", "deleted_at"),
         Index(
             "idx_events_active",

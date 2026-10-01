@@ -1,5 +1,6 @@
 import re
-from datetime import datetime, timezone
+from calendar import monthrange
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -148,14 +149,36 @@ class ReminderPayload(ZonedPayload):
     message: str | None = None
 
 
+EPOCH_DAY = date(1970, 1, 1)
+
+
+def event_date_from_epoch_day(value: int) -> date:
+    try:
+        return EPOCH_DAY + timedelta(days=value)
+    except OverflowError as error:
+        raise ValueError("event date is outside the supported range") from error
+
+
 class EventPayload(ZonedPayload):
     category_sync_id: UUID | None = None
     reminder_sync_id: UUID | None = None
     title: str = Field(min_length=1, max_length=255)
     description: str | None = None
-    date: int
+    start_date: int
+    end_date: int
     start_time: int | None = None
     end_time: int | None = None
+    recurrence_frequency: Literal["DAILY", "WEEKLY", "MONTHLY"] | None = None
+    recurrence_interval: int | None = Field(default=None, ge=1, le=365)
+    recurrence_weekdays: int | None = Field(default=None, ge=1, le=127)
+    recurrence_monthly_mode: Literal[
+        "DAY_OF_MONTH", "LAST_DAY", "NTH_WEEKDAY", "LAST_WEEKDAY"
+    ] | None = None
+    recurrence_until_date: int | None = None
+    reminder_offset_minutes: int | None = Field(default=None, ge=0, le=10080)
+    reminder_lead_days: int | None = Field(default=None, ge=0, le=7)
+    reminder_minute_of_day: int | None = Field(default=None, ge=0, le=1439)
+    relative_reminder_message: str | None = None
     priority: int
     location: str | None = Field(default=None, max_length=255)
 
@@ -171,26 +194,80 @@ class EventPayload(ZonedPayload):
     def event_times_must_be_consistent(self):
         if (self.start_time is None) != (self.end_time is None):
             raise ValueError("start_time and end_time must be provided together")
-
         zone = ZoneInfo(self.zone_id)
-
-        event_date = utc_from_millis(self.date).astimezone(zone).date()
-
+        start_day = event_date_from_epoch_day(self.start_date)
+        end_day = event_date_from_epoch_day(self.end_date)
+        if end_day < start_day:
+            raise ValueError("end_date precedes start_date")
         if self.start_time is not None and self.end_time is not None:
             start = utc_from_millis(self.start_time).astimezone(zone)
             end = utc_from_millis(self.end_time).astimezone(zone)
-
-            if start.date() != event_date or end.date() != event_date:
-                raise ValueError("event timestamps must use the event date")
-
+            if start.date() != start_day or end.date() != end_day:
+                raise ValueError("event timestamps must match start/end dates")
             if start.fold == 1 or end.fold == 1:
                 raise ValueError(
                     "the second occurrence of an overlapping event time is unsupported"
                 )
-
-            if end.time() <= start.time():
-                raise ValueError("end_time must be after start_time")
-
+            if end.astimezone(timezone.utc) <= start.astimezone(timezone.utc):
+                raise ValueError("event end must be after start")
+        if self.recurrence_frequency is None:
+            if any(value is not None for value in (
+                self.recurrence_interval, self.recurrence_weekdays,
+                self.recurrence_monthly_mode, self.recurrence_until_date,
+            )):
+                raise ValueError("recurrence fields require a frequency")
+        elif self.recurrence_frequency == "DAILY":
+            if self.recurrence_interval is None or (
+                self.recurrence_weekdays is not None or
+                self.recurrence_monthly_mode is not None
+            ):
+                raise ValueError("daily recurrence needs only an interval")
+        elif self.recurrence_frequency == "WEEKLY":
+            if self.recurrence_interval is None or self.recurrence_weekdays is None:
+                raise ValueError("weekly recurrence needs interval and weekdays")
+            if self.recurrence_interval > 52 or self.recurrence_monthly_mode is not None:
+                raise ValueError("invalid weekly recurrence fields")
+            if not self.recurrence_weekdays & (1 << start_day.weekday()):
+                raise ValueError("anchor date must be a selected weekday")
+        else:
+            if self.recurrence_interval is None or self.recurrence_interval > 24:
+                raise ValueError("monthly interval must be 1–24")
+            if self.recurrence_weekdays is not None or self.recurrence_monthly_mode is None:
+                raise ValueError("monthly recurrence needs a pattern")
+            if (self.recurrence_monthly_mode == "LAST_DAY" and
+                start_day.day != monthrange(start_day.year, start_day.month)[1]
+            ):
+                raise ValueError("anchor must be the month's last day")
+            if (self.recurrence_monthly_mode == "LAST_WEEKDAY" and
+                start_day.day + 7 <= monthrange(start_day.year, start_day.month)[1]
+            ):
+                raise ValueError("anchor must be the month's last selected weekday")
+        if self.recurrence_frequency is not None:
+            if self.recurrence_until_date is not None and (
+                event_date_from_epoch_day(self.recurrence_until_date) < start_day
+            ):
+                raise ValueError("recurrence until date precedes the anchor")
+        if (self.reminder_lead_days is None) != (self.reminder_minute_of_day is None):
+            raise ValueError("date-only reminder needs lead days and local clock")
+        date_rule = self.reminder_lead_days is not None
+        timed = self.start_time is not None
+        if timed and date_rule:
+            raise ValueError("timed events use minute-offset reminders")
+        if not timed and self.reminder_offset_minutes is not None:
+            raise ValueError("date-only events use local-time reminders")
+        modes = sum((
+            self.reminder_sync_id is not None,
+            self.reminder_offset_minutes is not None,
+            date_rule,
+        ))
+        if modes > 1:
+            raise ValueError("choose only one reminder mode")
+        if self.recurrence_frequency is not None and self.reminder_sync_id is not None:
+            raise ValueError("a repeating event needs a relative reminder rule")
+        if self.relative_reminder_message is not None and not (
+            self.reminder_offset_minutes is not None or date_rule
+        ):
+            raise ValueError("relative reminder message requires a rule")
         return self
 
 

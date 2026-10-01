@@ -470,9 +470,19 @@ async def _apply_payload(
         assert isinstance(payload, EventPayload)
         entity.title = payload.title
         entity.description = payload.description
-        entity.date = _milliseconds_to_date(payload.date, payload.zone_id)
+        entity.start_date = cast(date, _epoch_days_to_date(payload.start_date))
+        entity.end_date = cast(date, _epoch_days_to_date(payload.end_date))
         entity.start_time = _milliseconds_to_time(payload.start_time, payload.zone_id)
         entity.end_time = _milliseconds_to_time(payload.end_time, payload.zone_id)
+        entity.recurrence_frequency = payload.recurrence_frequency
+        entity.recurrence_interval = payload.recurrence_interval
+        entity.recurrence_weekdays = payload.recurrence_weekdays
+        entity.recurrence_monthly_mode = payload.recurrence_monthly_mode
+        entity.recurrence_until_date = _epoch_days_to_date(payload.recurrence_until_date)
+        entity.reminder_offset_minutes = payload.reminder_offset_minutes
+        entity.reminder_lead_days = payload.reminder_lead_days
+        entity.reminder_minute_of_day = payload.reminder_minute_of_day
+        entity.relative_reminder_message = payload.relative_reminder_message
         entity.zone_id = payload.zone_id
         entity.priority = payload.priority
         entity.location = payload.location
@@ -568,11 +578,21 @@ async def _serialize_entity(db: AsyncSession, entity_type: str, entity) -> dict[
             **relationship_data,
             "title": entity.title,
             "description": entity.description,
-            "date": _date_to_milliseconds(entity.date, entity.zone_id),
+            "start_date": cast(int, _date_to_epoch_days(entity.start_date)),
+            "end_date": cast(int, _date_to_epoch_days(entity.end_date)),
             "start_time": _time_to_milliseconds(
-                entity.date, entity.start_time, entity.zone_id
+                entity.start_date, entity.start_time, entity.zone_id
             ),
-            "end_time": _time_to_milliseconds(entity.date, entity.end_time, entity.zone_id),
+            "end_time": _time_to_milliseconds(entity.end_date, entity.end_time, entity.zone_id),
+            "recurrence_frequency": entity.recurrence_frequency,
+            "recurrence_interval": entity.recurrence_interval,
+            "recurrence_weekdays": entity.recurrence_weekdays,
+            "recurrence_monthly_mode": entity.recurrence_monthly_mode,
+            "recurrence_until_date": _date_to_epoch_days(entity.recurrence_until_date),
+            "reminder_offset_minutes": entity.reminder_offset_minutes,
+            "reminder_lead_days": entity.reminder_lead_days,
+            "reminder_minute_of_day": entity.reminder_minute_of_day,
+            "relative_reminder_message": entity.relative_reminder_message,
             "zone_id": entity.zone_id,
             "priority": entity.priority,
             "location": entity.location,
