@@ -594,7 +594,7 @@ class SyncChangeLog(Base):
     entity_sync_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
     operation: Mapped[str] = mapped_column(String(16), nullable=False)
     entity_version: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    data: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
     origin_device_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
     origin_mutation_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
     changed_at: Mapped[datetime] = mapped_column(

@@ -1000,15 +1000,16 @@ async def exchange_tide(
     _validate_request(request)
     cursor = _parse_cursor(request.cursor)
     response_id = uuid4()
+    user_id = current_user.user_id
 
     if db.in_transaction():
         await db.commit()
 
     async with db.begin():
-        await _validate_cursor(db, current_user.user_id, cursor)
+        await _validate_cursor(db, user_id, cursor)
 
     outcomes = [
-        await _process_mutation(db, current_user.user_id, request.device_id, mutation)
+        await _process_mutation(db, user_id, request.device_id, mutation)
         for mutation in request.mutations
     ]
     acknowledged, rejected, conflicts = _partition_outcomes(outcomes)
@@ -1016,13 +1017,13 @@ async def exchange_tide(
     async with db.begin():
         changes, next_cursor, more_changes = await _load_changes(
             db,
-            current_user.user_id,
+            user_id,
             cursor,
             request.data_limit,
         )
         db.add(
             SyncLog(
-                user_id=current_user.user_id,
+                user_id=user_id,
                 result="SUCCESS",
                 request_id=request.request_id,
                 response_id=response_id,
