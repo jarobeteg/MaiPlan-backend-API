@@ -109,17 +109,24 @@ class TideSyncResponse(TideModel):
 
 class CategoryPayload(TideModel):
     name: str = Field(min_length=1, max_length=255)
-    description: str
+    description: str = ""
     color: str = Field(min_length=1, max_length=32)
     icon: str = Field(min_length=1, max_length=32)
 
-    @field_validator("name", "description")
+    @field_validator("name")
     @classmethod
-    def text_must_not_be_blank(cls, value: str) -> str:
+    def name_must_not_be_blank(cls, value: str) -> str:
         value = value.strip()
         if not value:
             raise ValueError("value must not be blank")
         return value
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def normalize_description(cls, value: Any) -> Any:
+        if value is None:
+            return ""
+        return value.strip() if isinstance(value, str) else value
 
 
 class ZonedPayload(TideModel):

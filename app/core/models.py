@@ -99,7 +99,9 @@ class Category(TideEntityMixin, Base):
         nullable=False,
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str] = mapped_column(
+        Text, nullable=False, default="", server_default=""
+    )
     color: Mapped[str] = mapped_column(String(32), nullable=False)
     icon: Mapped[str] = mapped_column(String(32), nullable=False)
 
@@ -107,10 +109,6 @@ class Category(TideEntityMixin, Base):
         UniqueConstraint("user_id", "sync_id", name="uq_categories_user_sync_id"),
         CheckConstraint("version > 0", name="ck_categories_version_positive"),
         CheckConstraint("length(btrim(name)) > 0", name="ck_categories_name_not_blank"),
-        CheckConstraint(
-            "length(btrim(description)) > 0",
-            name="ck_categories_description_not_blank",
-        ),
         CheckConstraint("length(btrim(color)) > 0", name="ck_categories_color_not_blank"),
         CheckConstraint("length(btrim(icon)) > 0", name="ck_categories_icon_not_blank"),
         Index("idx_categories_user", "user_id"),
