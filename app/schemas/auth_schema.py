@@ -25,6 +25,15 @@ class UserPasswordReset(BaseModel):
     device_id: UUID
 
 
+class UserUsernameChange(BaseModel):
+    username: str = Field(max_length=32)
+
+
+class UserPasswordChange(BaseModel):
+    password: str
+    password_again: str
+
+
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
     device_id: UUID

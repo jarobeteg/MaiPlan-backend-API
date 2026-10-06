@@ -9,10 +9,13 @@ from schemas.auth_schema import (
     AuthResponse,
     RefreshTokenRequest,
     UserLogin,
+    UserPasswordChange,
     UserPasswordReset,
     UserRegister,
     UserResponse,
+    UserUsernameChange,
 )
+from services.account_service import change_password, change_username
 from services.auth_session_service import (
     IssuedSession,
     create_session,
@@ -20,7 +23,12 @@ from services.auth_session_service import (
     rotate_session,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
-from utils.auth_utils import create_access_token, get_current_user
+from utils.auth_utils import (
+    AuthContext,
+    create_access_token,
+    get_auth_context,
+    get_current_user,
+)
 from utils.password_utils import do_passwords_match, is_valid_password, verify_password
 
 router = APIRouter()
@@ -139,3 +147,30 @@ async def refresh(
 @router.get("/me", response_model=UserResponse)
 async def get_my_profile(current_user: Annotated[User, Depends(get_current_user)]):
     return current_user
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_my_username(
+    request: UserUsernameChange,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    auth_context: Annotated[AuthContext, Depends(get_auth_context)],
+) -> UserResponse:
+    user = await change_username(
+        db, auth_context.user.user_id, auth_context.session.device_id, request.username,
+    )
+    return UserResponse.model_validate(user)
+
+
+@router.post("/change-password", response_model=UserResponse)
+async def change_my_password(
+    request: UserPasswordChange,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    auth_context: Annotated[AuthContext, Depends(get_auth_context)],
+) -> UserResponse:
+    request.password = validate_password(request.password)
+    validate_password_strength(request.password)
+    validate_passwords(request.password, request.password_again.strip())
+    user = await change_password(
+        db, auth_context.user.user_id, auth_context.session.device_id, request.password,
+    )
+    return UserResponse.model_validate(user)
