@@ -18,6 +18,13 @@ class UserLogin(BaseModel):
     device_id: UUID
 
 
+class UserPasswordReset(BaseModel):
+    email: str
+    password: str
+    password_again: str
+    device_id: UUID
+
+
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
     device_id: UUID

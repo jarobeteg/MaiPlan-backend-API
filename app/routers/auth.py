@@ -1,16 +1,24 @@
 import re
+from typing import Annotated
 
 from core.database import get_db
+from core.models import User
 from crud.user_crud import create_user, get_user_by_email, get_user_by_username
 from fastapi import APIRouter, Depends, HTTPException
 from schemas.auth_schema import (
     AuthResponse,
     RefreshTokenRequest,
     UserLogin,
+    UserPasswordReset,
     UserRegister,
     UserResponse,
 )
-from services.auth_session_service import IssuedSession, create_session, rotate_session
+from services.auth_session_service import (
+    IssuedSession,
+    create_session,
+    reset_password_session,
+    rotate_session,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from utils.auth_utils import create_access_token, get_current_user
 from utils.password_utils import do_passwords_match, is_valid_password, verify_password
@@ -65,7 +73,7 @@ def build_auth_response(user, issued_session: IssuedSession) -> AuthResponse:
     )
 
 @router.post("/register", response_model=AuthResponse)
-async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
+async def register(user: UserRegister, db: Annotated[AsyncSession, Depends(get_db)]):
     user.email = validate_email(user.email)
     user.username = user.username.strip()
 
@@ -84,7 +92,7 @@ async def register(user: UserRegister, db: AsyncSession = Depends(get_db)):
     return build_auth_response(new_user, issued_session)
 
 @router.post("/login", response_model=AuthResponse)
-async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
+async def login(user: UserLogin, db: Annotated[AsyncSession, Depends(get_db)]):
     user.email = validate_email(user.email)
     existing_user = await validate_email_existence(db, user.email)
 
@@ -97,10 +105,28 @@ async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
     return build_auth_response(existing_user, issued_session)
 
 
+@router.post("/reset-password", response_model=AuthResponse)
+async def reset_password(
+    request: UserPasswordReset,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> AuthResponse:
+    request.email = validate_email(request.email)
+    request.password = validate_password(request.password)
+    validate_password_strength(request.password)
+    validate_passwords(request.password, request.password_again.strip())
+    user, issued_session = await reset_password_session(
+        db,
+        request.email,
+        request.password,
+        request.device_id,
+    )
+    return build_auth_response(user, issued_session)
+
+
 @router.post("/refresh", response_model=AuthResponse)
 async def refresh(
     request: RefreshTokenRequest,
-    db: AsyncSession = Depends(get_db),
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> AuthResponse:
     user, issued_session = await rotate_session(
         db,
@@ -111,5 +137,5 @@ async def refresh(
 
 # an example of a protected route by jwt
 @router.get("/me", response_model=UserResponse)
-async def get_my_profile(current_user=Depends(get_current_user)):
+async def get_my_profile(current_user: Annotated[User, Depends(get_current_user)]):
     return current_user

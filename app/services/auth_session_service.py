@@ -4,11 +4,12 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from core.models import AuthSession, User
+from core.models import AuthSession, SyncChangeLog, User
 from core.settings import REFRESH_TOKEN_INACTIVITY_DAYS
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from utils.password_utils import hash_password
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,25 @@ def _is_expired(value: datetime, now: datetime) -> bool:
     return value <= now
 
 
+async def _issue_session(
+    db: AsyncSession,
+    user: User,
+    device_id: UUID,
+    now: datetime,
+) -> IssuedSession:
+    refresh_token = _new_refresh_token()
+    session = AuthSession(
+        user_id=user.user_id,
+        device_id=device_id,
+        refresh_token_hash=_refresh_token_hash(refresh_token),
+        refresh_expires_at=now + timedelta(days=REFRESH_TOKEN_INACTIVITY_DAYS),
+        updated_at=now,
+    )
+    db.add(session)
+    await db.flush()
+    return IssuedSession(session=session, refresh_token=refresh_token)
+
+
 async def create_session(
     db: AsyncSession,
     user: User,
@@ -50,7 +70,6 @@ async def create_session(
     if db.in_transaction():
         await db.commit()
     now = _utc_now()
-    refresh_token = _new_refresh_token()
     async with db.begin():
         existing_sessions = list(
             (
@@ -68,16 +87,59 @@ async def create_session(
         for existing in existing_sessions:
             existing.revoked_at = now
 
-        session = AuthSession(
-            user_id=user.user_id,
-            device_id=device_id,
-            refresh_token_hash=_refresh_token_hash(refresh_token),
-            refresh_expires_at=now + timedelta(days=REFRESH_TOKEN_INACTIVITY_DAYS),
-            updated_at=now,
+        issued_session = await _issue_session(db, user, device_id, now)
+    return issued_session
+
+
+async def reset_password_session(
+    db: AsyncSession,
+    email: str,
+    password: str,
+    device_id: UUID,
+) -> tuple[User, IssuedSession]:
+    # Password replacement, session revocation, and issuance must commit together.
+    async with db.begin():
+        user = await db.scalar(
+            select(User)
+            .where(User.email == email, User.deleted_at.is_(None))
+            .with_for_update()
         )
-        db.add(session)
+        if user is None:
+            raise HTTPException(
+                status_code=401,
+                detail={"code": 3, "message": "Email is not yet registered!"},
+            )
+
+        now = _utc_now()
+        user.password_hash = hash_password(password)
+        user.version += 1
+        user.updated_at = now
         await db.flush()
-    return IssuedSession(session=session, refresh_token=refresh_token)
+        await db.refresh(user, attribute_names=["updated_at"])
+        db.add(
+            SyncChangeLog(
+                user_id=user.user_id,
+                entity_type="user",
+                entity_sync_id=user.sync_id,
+                operation="UPDATE",
+                entity_version=user.version,
+                data={
+                    "email": user.email,
+                    "username": user.username,
+                    "created_at": user.created_at.isoformat(),
+                    "updated_at": user.updated_at.isoformat(),
+                },
+                origin_device_id=device_id,
+                origin_mutation_id=None,
+            )
+        )
+        await db.execute(
+            update(AuthSession)
+            .where(AuthSession.user_id == user.user_id, AuthSession.revoked_at.is_(None))
+            .values(revoked_at=now, updated_at=now)
+        )
+        issued_session = await _issue_session(db, user, device_id, now)
+    return user, issued_session
 
 
 async def rotate_session(
