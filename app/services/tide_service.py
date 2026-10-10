@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta, timezone, tzinfo
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import Any, Literal, cast
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -18,9 +18,15 @@ from core.models import (
     SyncChangeLog,
     SyncLog,
     Task,
+    TaskExclusion,
+    TaskSeries,
     User,
 )
 from core.settings import TIDE_MAX_REQUEST_BYTES
+from core.task_contract import (
+    task_duration_from_milliseconds,
+    task_duration_to_milliseconds,
+)
 from fastapi import HTTPException
 from pydantic import ValidationError
 from schemas.tide_schema import (
@@ -82,6 +88,8 @@ ENTITY_CONFIGS: dict[str, EntityConfig] = {
     "note": EntityConfig(Note, "note_id"),
     "task": EntityConfig(Task, "task_id"),
     "subtask": EntityConfig(Subtask, "subtask_id"),
+    "task_series": EntityConfig(TaskSeries, "task_series_id"),
+    "task_exclusion": EntityConfig(TaskExclusion, "task_exclusion_id"),
 }
 
 
@@ -100,31 +108,31 @@ def _http_error(status_code: int, code: str, message: str) -> HTTPException:
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _iso_instant(value: datetime) -> str:
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _milliseconds_to_datetime(value: int) -> datetime:
     try:
-        return datetime.fromtimestamp(value / 1000, timezone.utc)
+        return datetime.fromtimestamp(value / 1000, UTC)
     except (OverflowError, OSError, ValueError) as exception:
         raise MutationRejected(MALFORMED_MUTATION, "Timestamp is outside the supported range") from exception
 
 
 def _datetime_to_milliseconds(value: datetime) -> int:
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
+        value = value.replace(tzinfo=UTC)
     return int(value.timestamp() * 1000)
 
 
 def _zone_info(zone_id: str) -> tzinfo:
     if zone_id == "UTC":
-        return timezone.utc
+        return UTC
     try:
         return ZoneInfo(zone_id)
     except ZoneInfoNotFoundError as exception:
@@ -170,15 +178,11 @@ def _date_to_epoch_days(value: date | None) -> int | None:
 
 
 def _milliseconds_to_timedelta(value: int | None) -> timedelta | None:
-    if value is None:
-        return None
-    return timedelta(milliseconds=value)
+    return task_duration_from_milliseconds(value)
 
 
 def _timedelta_to_milliseconds(value: timedelta | None) -> int | None:
-    if value is None:
-        return None
-    return int(value.total_seconds() * 1000)
+    return task_duration_to_milliseconds(value)
 
 
 def _parse_cursor(cursor: str | None) -> int:
@@ -194,7 +198,7 @@ def _parse_cursor(cursor: str | None) -> int:
 
 
 def _validate_request(request: TideSyncRequest) -> None:
-    if request.tide_protocol_version != TIDE_PROTOCOL_VERSION:
+    if request.tide_protocol_version not in (1, TIDE_PROTOCOL_VERSION):
         raise _http_error(
             400,
             "UNSUPPORTED_PROTOCOL_VERSION",
@@ -208,6 +212,8 @@ def _validate_request(request: TideSyncRequest) -> None:
     )
     if encoded_size > MAX_REQUEST_BYTES:
         raise _http_error(413, "PAYLOAD_TOO_LARGE", "The TIDE request payload is too large")
+    if request.tide_protocol_version == 1 and any(m.entity_type in {'task', 'subtask', 'task_action', 'task_series', 'task_exclusion', 'task_series_action'} for m in request.mutations):
+        raise _http_error(426, 'TASK_PROTOCOL_REQUIRED', 'Task actions require TIDE protocol 3')
 
 
 def _mutation_request_hash(mutation: TideMutation) -> str:
@@ -282,6 +288,8 @@ def _outcome_from_ledger(
         return TideAcknowledgement(
             **identity,
             server_version=result_version,
+            effects=(ledger.server_data or {}).get('effects', []),
+            continuation=(ledger.server_data or {}).get('continuation'),
         )
     if ledger.outcome == CONFLICT:
         result_version = ledger.result_version
@@ -310,7 +318,8 @@ def _ledger_from_outcome(
         result_version = outcome.server_version
         error_code = None
         message = None
-        server_data = None
+        server_data = {'effects': [item.model_dump(mode='json') for item in outcome.effects],
+            'continuation': outcome.continuation} if outcome.effects or outcome.continuation else None
     elif isinstance(outcome, TideConflict):
         result = CONFLICT
         result_version = outcome.server_version
@@ -416,7 +425,7 @@ def _parse_payload(mutation: TideMutation):
     payload_model = ENTITY_PAYLOAD_MODELS[mutation.entity_type]
     try:
         return payload_model.model_validate(mutation.data)
-    except ValidationError as exception:
+    except (ValidationError, TypeError) as exception:
         raise MutationRejected(
             MALFORMED_MUTATION,
             "Mutation data does not match the entity schema",
@@ -505,6 +514,10 @@ async def _apply_payload(
         entity.completed_date = _epoch_days_to_date(payload.completed_date)
         entity.series_id = payload.series_id
         entity.occurrence_number = payload.occurrence_number
+        entity.slot_date = _epoch_days_to_date(payload.slot_date)
+        entity.generation_revision = payload.generation_revision
+        entity.occurrence_override = payload.occurrence_override
+        entity.relative_reminder = payload.relative_reminder
         entity.repeat_unit = payload.repeat_unit
         entity.repeat_interval = payload.repeat_interval
         entity.repeat_weekdays = payload.repeat_weekdays
@@ -514,7 +527,7 @@ async def _apply_payload(
 
     if entity_type == "subtask":
         assert isinstance(payload, SubtaskPayload)
-        entity.task_id = await _resolve_relationship(
+        parent_id = await _resolve_relationship(
             db,
             user_id,
             Task,
@@ -522,6 +535,9 @@ async def _apply_payload(
             payload.parent_task_sync_id,
             "parent task",
         )
+        if entity.task_id is not None and entity.task_id != parent_id:
+            raise MutationRejected(MALFORMED_MUTATION, "A Subtask cannot be moved to another Task")
+        entity.task_id = parent_id
         entity.title = payload.title
         entity.status = payload.status
         entity.sort_order = payload.sort_order
@@ -540,6 +556,11 @@ async def _serialize_entity(db: AsyncSession, entity_type: str, entity) -> dict[
         "created_at": _iso_instant(entity.created_at),
         "updated_at": _iso_instant(entity.updated_at),
     }
+    if entity_type == 'task_series':
+        from services.task_series_actions import active_operation
+        return {'definition': entity.definition, 'pending_operation': active_operation(entity), **common}
+    if entity_type == 'task_exclusion':
+        return {'series_id': entity.series_id, 'slot_date': _date_to_epoch_days(entity.slot_date), **common}
     if entity_type == "user":
         return {"email": entity.email, "username": entity.username, **common}
     if entity_type == "category":
@@ -617,6 +638,10 @@ async def _serialize_entity(db: AsyncSession, entity_type: str, entity) -> dict[
             "completed_date": _date_to_epoch_days(entity.completed_date),
             "series_id": entity.series_id,
             "occurrence_number": entity.occurrence_number,
+            "slot_date": entity.slot_date and _date_to_epoch_days(entity.slot_date),
+            "generation_revision": entity.generation_revision,
+            "occurrence_override": bool(entity.occurrence_override),
+            "relative_reminder": entity.relative_reminder,
             "repeat_unit": entity.repeat_unit,
             "repeat_interval": entity.repeat_interval,
             "repeat_weekdays": entity.repeat_weekdays,
@@ -722,6 +747,19 @@ async def _detach_deleted_relationships(
     now: datetime,
 ) -> None:
     if mutation.entity_type == "category":
+        series_rows = (await db.scalars(select(TaskSeries).where(TaskSeries.user_id == user_id, TaskSeries.deleted_at.is_(None)).with_for_update())).all()
+        for series in series_rows:
+            from copy import deepcopy
+            definition = deepcopy(series.definition)
+            changed = False
+            for revision in definition['revisions']:
+                if revision.get('category_sync_id') == str(deleted_entity.sync_id):
+                    revision['category_sync_id'] = None; changed = True
+            if changed:
+                series.definition = definition; series.version += 1; series.updated_at = now
+                await db.flush()
+                _append_change(db, user_id, device_id, mutation.mutation_id, 'task_series', series.sync_id,
+                    UPDATE, series.version, await _serialize_entity(db, 'task_series', series))
         relationships = (
             (Event, "event", "category_id"),
             (Note, "note", "category_id"),
@@ -814,6 +852,16 @@ async def _evaluate_mutation(
         raise MutationRejected(UNKNOWN_ENTITY_TYPE, "The mutation entity type is not supported")
     if mutation.operation not in OPERATIONS:
         raise MutationRejected(MALFORMED_MUTATION, "The mutation operation is not supported")
+    if mutation.entity_type == 'task_action':
+        from services.task_actions import evaluate_task_action
+        return await evaluate_task_action(db, user_id, device_id, mutation)
+    if mutation.entity_type == 'task_series_action':
+        from services.task_series_actions import evaluate_series_action
+        return await evaluate_series_action(db, user_id, device_id, mutation)
+    if mutation.entity_type in {'task_series', 'task_exclusion'}:
+        raise MutationRejected('TASK_SERIES_ACTION_REQUIRED', 'Use an atomic series action')
+    if mutation.entity_type in {'task', 'subtask'}:
+        raise MutationRejected('TASK_ACTION_REQUIRED', 'Tasks and checklists must use an atomic Task action')
 
     payload = _parse_payload(mutation)
     now = _utc_now()
@@ -887,6 +935,7 @@ async def _persist_rejection_after_integrity_error(
     mutation: TideMutation,
 ) -> TideOutcome:
     async with db.begin():
+        await db.scalar(select(User).where(User.user_id == user_id).with_for_update())
         ledger = await _get_processed_mutation(db, user_id, mutation.mutation_id)
         if ledger is not None:
             return _outcome_from_ledger(ledger, device_id, mutation)
@@ -909,6 +958,7 @@ async def _process_mutation(
 ) -> TideOutcome:
     try:
         async with db.begin():
+            await db.scalar(select(User).where(User.user_id == user_id).with_for_update())
             ledger = await _get_processed_mutation(db, user_id, mutation.mutation_id)
             if ledger is not None:
                 return _outcome_from_ledger(ledger, device_id, mutation)
@@ -1015,12 +1065,18 @@ async def exchange_tide(
     acknowledged, rejected, conflicts = _partition_outcomes(outcomes)
 
     async with db.begin():
+        await db.scalar(select(User).where(User.user_id == user_id).with_for_update())
+        from services.task_series_actions import resume_one_series_page
+        series_more = await resume_one_series_page(db, user_id, request.device_id) if request.tide_protocol_version == TIDE_PROTOCOL_VERSION else False
         changes, next_cursor, more_changes = await _load_changes(
             db,
             user_id,
             cursor,
             request.data_limit,
         )
+        more_changes = more_changes or (series_more and bool(changes))
+        if request.tide_protocol_version == 1 and any(change.entity_type in {'task', 'subtask', 'task_series', 'task_exclusion'} for change in changes):
+            raise _http_error(426, 'TASK_PROTOCOL_REQUIRED', 'This change feed requires TIDE protocol 3')
         db.add(
             SyncLog(
                 user_id=user_id,
@@ -1040,6 +1096,7 @@ async def exchange_tide(
         )
 
     return TideSyncResponse(
+        tide_protocol_version=request.tide_protocol_version,
         request_id=request.request_id,
         response_id=response_id,
         acknowledged=acknowledged,

@@ -1,6 +1,7 @@
 from datetime import date, datetime, time, timedelta
 from uuid import UUID, uuid4
 
+from core.task_contract import task_sql_checks
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -22,7 +23,7 @@ from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.sql import func
 
-TIDE_ENTITY_TYPES = "'user', 'category', 'reminder', 'event', 'note', 'task', 'subtask'"
+TIDE_ENTITY_TYPES = "'user', 'category', 'reminder', 'event', 'note', 'task', 'subtask', 'task_series', 'task_exclusion'"
 
 
 class Base(DeclarativeBase):
@@ -168,6 +169,24 @@ class Reminder(TideEntityMixin, Base):
     )
 
 
+class TaskSeries(TideEntityMixin, Base):
+    __tablename__ = 'task_series'
+    task_series_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.user_id', ondelete='CASCADE'))
+    definition: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    pending_operation: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    __table_args__ = (UniqueConstraint('user_id', 'sync_id'), CheckConstraint('version > 0'),)
+
+
+class TaskExclusion(TideEntityMixin, Base):
+    __tablename__ = 'task_exclusions'
+    task_exclusion_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.user_id', ondelete='CASCADE'))
+    series_id: Mapped[str] = mapped_column(Text, nullable=False)
+    slot_date: Mapped[date] = mapped_column(Date, nullable=False)
+    __table_args__ = (UniqueConstraint('user_id', 'sync_id'), UniqueConstraint('user_id', 'series_id', 'slot_date'),)
+
+
 class Task(TideEntityMixin, Base):
     __tablename__ = "tasks"
 
@@ -200,6 +219,10 @@ class Task(TideEntityMixin, Base):
     completed_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     series_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     occurrence_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    slot_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    generation_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    occurrence_override: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default='false')
+    relative_reminder: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
     repeat_unit: Mapped[int | None] = mapped_column(Integer, nullable=True)
     repeat_interval: Mapped[int | None] = mapped_column(Integer, nullable=True)
     repeat_weekdays: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -208,6 +231,10 @@ class Task(TideEntityMixin, Base):
 
     __table_args__ = (
         UniqueConstraint("user_id", "sync_id", name="uq_tasks_user_sync_id"),
+        UniqueConstraint("user_id", "series_id", "slot_date", name="uq_tasks_user_series_slot"),
+        CheckConstraint("COALESCE((series_id IS NULL AND slot_date IS NULL AND generation_revision IS NULL AND NOT occurrence_override) OR (series_id IS NOT NULL AND slot_date IS NOT NULL AND generation_revision > 0), FALSE)", name='ck_tasks_slot'),
+        CheckConstraint("relative_reminder IS NULL OR reminder_id IS NULL", name='ck_tasks_reminder_mode'),
+        *(CheckConstraint(expression, name=f"ck_tasks_{name}") for name, expression in task_sql_checks().items()),
         CheckConstraint("version > 0", name="ck_tasks_version_positive"),
         CheckConstraint("length(btrim(title)) > 0", name="ck_tasks_title_not_blank"),
         CheckConstraint(
@@ -266,6 +293,7 @@ class Subtask(TideEntityMixin, Base):
 
     __table_args__ = (
         UniqueConstraint("user_id", "sync_id", name="uq_subtasks_user_sync_id"),
+        *(CheckConstraint(expression, name=f"ck_subtasks_{name}") for name, expression in task_sql_checks(subtask=True).items()),
         CheckConstraint("version > 0", name="ck_subtasks_version_positive"),
         CheckConstraint("length(btrim(title)) > 0", name="ck_subtasks_title_not_blank"),
         CheckConstraint(
@@ -549,7 +577,7 @@ class ProcessedMutation(Base):
             name="ck_processed_mutations_outcome",
         ),
         CheckConstraint(
-            f"entity_type IN ({TIDE_ENTITY_TYPES})",
+            f"entity_type IN ({TIDE_ENTITY_TYPES}, 'task_action', 'task_series_action')",
             name="ck_processed_mutations_entity_type",
         ),
         CheckConstraint(

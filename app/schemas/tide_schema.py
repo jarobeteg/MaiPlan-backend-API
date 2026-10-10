@@ -1,6 +1,6 @@
 import re
 from calendar import monthrange
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -10,24 +10,37 @@ from core.settings import (
     TIDE_MAX_DATA_LIMIT,
     TIDE_MAX_MUTATIONS_PER_REQUEST,
 )
+from core.task_contract import (
+    MAX_ESTIMATED_MILLISECONDS,
+    MAX_ORDINAL,
+    normalize_task_description,
+    normalize_task_title,
+    task_date_from_epoch_day,
+    task_relationship_uuid,
+    validate_task_completion,
+    validate_task_repeat_metadata,
+)
 from pydantic import (
     BaseModel,
     ConfigDict,
     EmailStr,
     Field,
+    StrictBool,
+    StrictInt,
+    StrictStr,
     field_validator,
     model_validator,
 )
 
-TIDE_PROTOCOL_VERSION = 1
+TIDE_PROTOCOL_VERSION = 3
 DEFAULT_DATA_LIMIT = TIDE_DEFAULT_DATA_LIMIT
 MAX_DATA_LIMIT = TIDE_MAX_DATA_LIMIT
 MAX_MUTATIONS_PER_REQUEST = TIDE_MAX_MUTATIONS_PER_REQUEST
 
 MUTABLE_ENTITY_TYPES = frozenset(
-    {"category", "reminder", "event", "note", "task", "subtask"}
+    {"category", "reminder", "event", "note", "task", "subtask", "task_action", "task_series", "task_exclusion", "task_series_action"}
 )
-SUPPORTED_CHANGE_ENTITY_TYPES = frozenset({"user", *MUTABLE_ENTITY_TYPES})
+SUPPORTED_CHANGE_ENTITY_TYPES = frozenset({"user", *MUTABLE_ENTITY_TYPES} - {"task_action", "task_series_action"})
 
 
 class TideModel(BaseModel):
@@ -55,11 +68,21 @@ class TideSyncRequest(TideModel):
     )
 
 
+class TideActionSnapshot(TideModel):
+    entity_type: Literal["task", "subtask", "task_series", "task_exclusion"]
+    entity_sync_id: UUID
+    operation: Literal["CREATE", "UPDATE", "DELETE"]
+    server_version: int = Field(ge=1)
+    data: dict[str, Any] | None = None
+
+
 class TideAcknowledgement(TideModel):
     mutation_id: UUID
     entity_type: str
     entity_sync_id: UUID
     server_version: int = Field(ge=1)
+    effects: list[TideActionSnapshot] = Field(default_factory=list)
+    continuation: dict | None = None
 
 
 class TideRejection(TideModel):
@@ -215,7 +238,7 @@ class EventPayload(ZonedPayload):
                 raise ValueError(
                     "the second occurrence of an overlapping event time is unsupported"
                 )
-            if end.astimezone(timezone.utc) <= start.astimezone(timezone.utc):
+            if end.astimezone(UTC) <= start.astimezone(UTC):
                 raise ValueError("event end must be after start")
         if self.recurrence_frequency is None:
             if any(value is not None for value in (
@@ -249,11 +272,12 @@ class EventPayload(ZonedPayload):
                 start_day.day + 7 <= monthrange(start_day.year, start_day.month)[1]
             ):
                 raise ValueError("anchor must be the month's last selected weekday")
-        if self.recurrence_frequency is not None:
-            if self.recurrence_until_date is not None and (
-                event_date_from_epoch_day(self.recurrence_until_date) < start_day
-            ):
-                raise ValueError("recurrence until date precedes the anchor")
+        if (
+            self.recurrence_frequency is not None
+            and self.recurrence_until_date is not None
+            and event_date_from_epoch_day(self.recurrence_until_date) < start_day
+        ):
+            raise ValueError("recurrence until date precedes the anchor")
         if (self.reminder_lead_days is None) != (self.reminder_minute_of_day is None):
             raise ValueError("date-only reminder needs lead days and local clock")
         date_rule = self.reminder_lead_days is not None
@@ -297,28 +321,89 @@ class NotePayload(TideModel):
 class TaskPayload(TideModel):
     category_sync_id: UUID | None = None
     reminder_sync_id: UUID | None = None
-    title: str = Field(min_length=1, max_length=255)
-    description: str | None = None
-    status: int
-    scheduled_date: int | None = None
-    estimated_time: int | None = Field(default=None, ge=0)
-    completed_date: int | None = None
-    series_id: str | None = None
-    occurrence_number: int | None = Field(default=None, ge=0)
-    repeat_unit: int | None = None
-    repeat_interval: int | None = Field(default=None, ge=1)
-    repeat_weekdays: int | None = Field(default=None, ge=0)
-    repeat_end_date: int | None = None
-    repeat_anchor_date: int | None = None
+    title: StrictStr
+    description: StrictStr | None = None
+    status: StrictInt = Field(ge=0, le=4)
+    scheduled_date: StrictInt | None = None
+    estimated_time: StrictInt | None = Field(default=None, ge=0, le=MAX_ESTIMATED_MILLISECONDS)
+    completed_date: StrictInt | None = None
+    series_id: StrictStr | None = None
+    occurrence_number: StrictInt | None = Field(default=None, ge=0, le=MAX_ORDINAL)
+    slot_date: StrictInt | None = None
+    generation_revision: StrictInt | None = Field(default=None, ge=1)
+    occurrence_override: StrictBool = False
+    relative_reminder: dict | None = None
+    repeat_unit: StrictInt | None = None
+    repeat_interval: StrictInt | None = Field(default=None, ge=1)
+    repeat_weekdays: StrictInt | None = Field(default=None, ge=0)
+    repeat_end_date: StrictInt | None = None
+    repeat_anchor_date: StrictInt | None = None
+
+    @field_validator("category_sync_id", "reminder_sync_id", mode="before")
+    @classmethod
+    def validate_relationship_uuid(cls, value):
+        return task_relationship_uuid(value)
+
+    @field_validator("title")
+    @classmethod
+    def normalize_title(cls, value: str) -> str:
+        return normalize_task_title(value)
+
+    @field_validator("description")
+    @classmethod
+    def normalize_description(cls, value: str | None) -> str | None:
+        return normalize_task_description(value)
+
+    @model_validator(mode="after")
+    def validate_task_contract(self):
+        from core.task_series_contract import RelativeReminder
+        task_date_from_epoch_day(self.slot_date)
+        if self.series_id is None:
+            if self.slot_date is not None or self.generation_revision is not None or self.occurrence_override:
+                raise ValueError('A one-off Task cannot contain occurrence identity metadata')
+        elif self.slot_date is None or self.generation_revision is None:
+            raise ValueError('A repeating Task requires its original slot and generation revision')
+        if self.relative_reminder is not None:
+            self.relative_reminder = RelativeReminder.model_validate(self.relative_reminder).model_dump(mode='json')
+            if self.reminder_sync_id is not None:
+                raise ValueError('Absolute and relative reminders are mutually exclusive')
+            if self.scheduled_date is None:
+                raise ValueError('A relative reminder requires a planned date')
+        scheduled = task_date_from_epoch_day(self.scheduled_date)
+        validate_task_completion(self.status, task_date_from_epoch_day(self.completed_date))
+        validate_task_repeat_metadata(
+            series_id=self.series_id, occurrence_number=self.occurrence_number,
+            repeat_unit=self.repeat_unit, repeat_interval=self.repeat_interval,
+            repeat_weekdays=self.repeat_weekdays,
+            repeat_end_date=task_date_from_epoch_day(self.repeat_end_date),
+            repeat_anchor_date=task_date_from_epoch_day(self.repeat_anchor_date),
+            scheduled_date=scheduled,
+        )
+        return self
 
 
 class SubtaskPayload(TideModel):
     parent_task_sync_id: UUID
-    title: str = Field(min_length=1)
-    status: int
-    sort_order: int
-    estimated_time: int | None = Field(default=None, ge=0)
-    completed_date: int | None = None
+    title: StrictStr
+    status: StrictInt = Field(ge=0, le=4)
+    sort_order: StrictInt = Field(ge=0, le=MAX_ORDINAL)
+    estimated_time: StrictInt | None = Field(default=None, ge=0, le=MAX_ESTIMATED_MILLISECONDS)
+    completed_date: StrictInt | None = None
+
+    @field_validator("parent_task_sync_id", mode="before")
+    @classmethod
+    def validate_relationship_uuid(cls, value):
+        return task_relationship_uuid(value)
+
+    @field_validator("title")
+    @classmethod
+    def normalize_title(cls, value: str) -> str:
+        return normalize_task_title(value)
+
+    @model_validator(mode="after")
+    def validate_subtask_contract(self):
+        validate_task_completion(self.status, task_date_from_epoch_day(self.completed_date))
+        return self
 
 
 class UserPayload(TideModel):
@@ -338,6 +423,6 @@ ENTITY_PAYLOAD_MODELS: dict[str, type[TideModel]] = {
 
 def utc_from_millis(value: int) -> datetime:
     try:
-        return datetime.fromtimestamp(value / 1000, timezone.utc)
+        return datetime.fromtimestamp(value / 1000, UTC)
     except (OverflowError, OSError, ValueError) as exc:
         raise ValueError("timestamp is outside the supported range") from exc

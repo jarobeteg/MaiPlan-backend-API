@@ -3,7 +3,6 @@ uvicorn[standard]
 sqlalchemy
 asyncpg
 psycopg2-binary
-alembic
 python-dotenv
 pydantic[email]
 pwdlib[argon2]
